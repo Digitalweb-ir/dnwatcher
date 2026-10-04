@@ -1,0 +1,328 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* دارک‌مود بر پایه‌ی کلاس .dark روی <html> (قرارداد shadcn) */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-vazirmatn), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* رنگ‌های وضعیت مانیتورینگ */
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-warn: var(--warn);
+  --color-idle: var(--idle);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+/* ---------- روشن ---------- */
+:root {
+  color-scheme: light;
+  --radius: 0.75rem;
+  /* مقیاس شعاع را صریح تعریف می‌کنیم تا مقادیر دلخواه مثل var(--radius-md) در زمان اجرا هم موجود باشند */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --background: #f5f7fa;
+  --foreground: #0f141b;
+  --card: #ffffff;
+  --card-foreground: #0f141b;
+  --popover: #ffffff;
+  --popover-foreground: #0f141b;
+  --primary: #2f83ff;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f6;
+  --secondary-foreground: #1b2430;
+  --muted: #eef1f6;
+  --muted-foreground: #5a6572;
+  --accent: #e7f0ff;
+  --accent-foreground: #17509e;
+  --destructive: #dc2f36;
+  --destructive-foreground: #ffffff;
+  --border: #e1e5ec;
+  --input: #e1e5ec;
+  --ring: #2f83ff;
+
+  --up: #16a34a;
+  --down: #e5484d;
+  --warn: #e08c00;
+  --idle: #94a3b8;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f141b;
+  --sidebar-accent: #eef2f8;
+  --sidebar-accent-foreground: #0f141b;
+  --sidebar-border: #e6eaf0;
+  --sidebar-ring: #2f83ff;
+
+  --glow: 47 131 255;
+  --shadow-soft: 0 1px 2px rgb(15 20 27 / 0.04), 0 8px 24px -12px rgb(15 20 27 / 0.10);
+}
+
+/* ---------- تاریک (پیش‌فرض سیستم) ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --background: #070a0f;
+    --foreground: #e8ecf2;
+    --card: #0e131b;
+    --card-foreground: #e8ecf2;
+    --popover: #0e131b;
+    --popover-foreground: #e8ecf2;
+    --primary: #3f8dff;
+    --primary-foreground: #05101f;
+    --secondary: #161d28;
+    --secondary-foreground: #dbe3ee;
+    --muted: #161d28;
+    --muted-foreground: #93a1b5;
+    --accent: #15223a;
+    --accent-foreground: #a8c8ff;
+    --destructive: #ff5c5c;
+    --destructive-foreground: #1a0505;
+    --border: #1e2734;
+    --input: #1e2734;
+    --ring: #3f8dff;
+
+    --up: #22c55e;
+    --down: #f2555a;
+    --warn: #f5a524;
+    --idle: #64748b;
+
+    --sidebar: #0a0e15;
+    --sidebar-foreground: #e8ecf2;
+    --sidebar-accent: #141c27;
+    --sidebar-accent-foreground: #e8ecf2;
+    --sidebar-border: #1b2431;
+    --sidebar-ring: #3f8dff;
+
+    --glow: 63 141 255;
+    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -20px rgb(0 0 0 / 0.8);
+  }
+}
+
+/* ---------- تاریک (انتخاب صریح) ---------- */
+.dark {
+  color-scheme: dark;
+  --background: #070a0f;
+  --foreground: #e8ecf2;
+  --card: #0e131b;
+  --card-foreground: #e8ecf2;
+  --popover: #0e131b;
+  --popover-foreground: #e8ecf2;
+  --primary: #3f8dff;
+  --primary-foreground: #05101f;
+  --secondary: #161d28;
+  --secondary-foreground: #dbe3ee;
+  --muted: #161d28;
+  --muted-foreground: #93a1b5;
+  --accent: #15223a;
+  --accent-foreground: #a8c8ff;
+  --destructive: #ff5c5c;
+  --destructive-foreground: #1a0505;
+  --border: #1e2734;
+  --input: #1e2734;
+  --ring: #3f8dff;
+
+  --up: #22c55e;
+  --down: #f2555a;
+  --warn: #f5a524;
+  --idle: #64748b;
+
+  --sidebar: #0a0e15;
+  --sidebar-foreground: #e8ecf2;
+  --sidebar-accent: #141c27;
+  --sidebar-accent-foreground: #e8ecf2;
+  --sidebar-border: #1b2431;
+  --sidebar-ring: #3f8dff;
+
+  --glow: 63 141 255;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -20px rgb(0 0 0 / 0.8);
+}
+
+.light {
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'ss02';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* هاله‌ی محیطی ملایم پشت کل صفحه */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(60rem 32rem at 100% -10%, rgb(var(--glow) / 0.10), transparent 60%),
+      radial-gradient(48rem 28rem at -10% 110%, rgb(var(--glow) / 0.07), transparent 60%);
+  }
+
+  ::selection {
+    background: rgb(var(--glow) / 0.25);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------- ابزارهای سفارشی ---------- */
+@utility glass {
+  background: color-mix(in oklab, var(--card) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+@utility card-glow {
+  position: relative;
+  box-shadow: var(--shadow-soft);
+}
+
+@utility card-glow-primary {
+  box-shadow:
+    var(--shadow-soft),
+    0 0 0 1px rgb(var(--glow) / 0.18),
+    0 18px 46px -26px rgb(var(--glow) / 0.55);
+}
+
+/* اعداد فارسی */
+@utility fa-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* اسکرول‌بار نازک */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--foreground) 16%, transparent);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--foreground) 28%, transparent);
+  background-clip: content-box;
+}
+
+/* ---------- انیمیشن‌ها ---------- */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgb(var(--glow) / 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgb(var(--glow) / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--glow) / 0);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-fade-up {
+  animation: fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* احترام به کاهش حرکت */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------- اصلاحات RTL ---------- */
+/* تبدیل خودکار فاصله‌های منطقی در Tailwind 4 انجام می‌شود؛ اینجا فقط موارد خاص */
+[dir='rtl'] .flip-x {
+  transform: scaleX(-1);
+}
+
