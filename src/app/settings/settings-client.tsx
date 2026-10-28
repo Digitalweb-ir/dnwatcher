@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { BellRing, Clock, Database, KeyRound, Save, Server, Shield, AlertCircle } from 'lucide-react'
+import { BellRing, Clock, Database, KeyRound, Save, Server, Shield, AlertCircle, Bot, Send, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
 
 import { AppShell } from '@/components/app-shell'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +28,31 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
   const [subSuccess, setSubSuccess] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
+
+  // Telegram admin IDs state
+  const [telegramAdminIds, setTelegramAdminIds] = useState<string>('')
+
+  function handleTelegramAdminIdsChange(value: string) {
+    // Only allow numbers, commas, and spaces
+    const sanitized = value.replace(/[^0-9,\s]/g, '')
+    setTelegramAdminIds(sanitized)
+  }
+
+  function addTelegramAdminId(newId: string) {
+    const trimmed = newId.trim()
+    if (!trimmed) return
+    if (!/^\d+$/.test(trimmed)) return
+
+    const currentIds = telegramAdminIds.split(',').map((id) => id.trim()).filter(Boolean)
+    if (currentIds.includes(trimmed)) return
+
+    setTelegramAdminIds([...currentIds, trimmed].join(', '))
+  }
+
+  function removeTelegramAdminId(idToRemove: string) {
+    const currentIds = telegramAdminIds.split(',').map((id) => id.trim()).filter(Boolean)
+    setTelegramAdminIds(currentIds.filter((id) => id !== idToRemove).join(', '))
+  }
 
   async function handleSaveSettings(formData: FormData) {
     setGeneralError(null)
@@ -187,6 +212,18 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
                   type="url"
                   placeholder="https://example.com/webhook"
                   defaultValue={initialSettings.outage_webhook_url}
+                  dir="ltr"
+                  className="text-sm"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="ssh_recovery_command" className="text-xs">دستور ریکاوری SSH</Label>
+                <Input
+                  id="ssh_recovery_command"
+                  name="ssh_recovery_command"
+                  type="text"
+                  placeholder="backpack -restart-all"
+                  defaultValue={initialSettings.ssh_recovery_command}
                   dir="ltr"
                   className="text-sm"
                 />

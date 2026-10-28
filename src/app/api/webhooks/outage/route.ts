@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getDb } from '@/lib/db'
+import { getSettings } from '@/lib/db/settings'
 import { isAuthedRequest } from '@/lib/auth/guard'
 import type { Incident } from '@/lib/types'
+import { resolveHostToIps } from '@/lib/net/dns'
+import { findSshServerByIp, execSshCommand } from '@/lib/net/ssh'
+import { sendToAdmins, formatOutageLog, isTelegramEnabled } from '@/lib/telegram/client'
 
 /**
  * Webhook receiver for outage notifications.
@@ -23,6 +27,7 @@ import type { Incident } from '@/lib/types'
  *
  * This endpoint can be called by external services or by our own checker.
  * If called from our own checker, it records the event for auditing.
+ * On config_down event: resolves address to IP, finds SSH server, executes recovery command.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -62,17 +67,136 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const db = getDb()
-
-    // If called from our own checker (unauthenticated but from localhost),
-    // we still record the incident for audit purposes
-    // The incident is already recorded in recordChecks, so this is just an audit log
+    const settings = getSettings(db)
 
     // Log the webhook receipt for debugging/auditing
     console.log(`[Outage Webhook] Received: ${event} for config ${configId} (${address}:${port})`)
 
-    // If the request is authenticated, we could do additional processing
-    // For now, we just acknowledge receipt
+    // Switch on event type
+    if (event === 'config_down') {
+      // Send Telegram notification for config down
+      if (isTelegramEnabled()) {
+        const logText = formatOutageLog({
+          event: 'config_down',
+          configId,
+          serverId,
+          address,
+          port,
+          timestamp,
+        })
+        await sendToAdmins(logText)
+      }
 
+      // Handle config_down event: attempt SSH recovery
+      if (!address) {
+        return NextResponse.json(
+          { success: false, error: 'No address provided for config_down event' },
+          { status: 400 },
+        )
+      }
+
+      // Resolve address (domain) to IP(s)
+      const ips = await resolveHostToIps(address)
+      if (ips.length === 0) {
+        console.error(`[Outage Webhook] Failed to resolve address: ${address}`)
+        return NextResponse.json(
+          { success: false, error: `Failed to resolve address: ${address}` },
+          { status: 500 },
+        )
+      }
+
+      // Try each resolved IP to find matching SSH server
+      let sshResult: { stdout: string; stderr: string; code: number } | null = null
+      let matchedSshServer: { id: number; name: string; ip: string } | null = null
+
+      for (const ip of ips) {
+        const sshServer = findSshServerByIp(ip)
+        if (sshServer) {
+          matchedSshServer = { id: sshServer.id, name: sshServer.name, ip: sshServer.ip }
+          console.log(`[Outage Webhook] Found SSH server: ${sshServer.name} (${sshServer.ip}) for IP ${ip}`)
+
+          // Get the recovery command from settings
+          const recoveryCommand = settings.ssh_recovery_command ?? 'backpack -restart-all'
+          if (!recoveryCommand) {
+            console.log('[Outage Webhook] SSH recovery command is empty, skipping execution')
+            break
+          }
+
+          try {
+            console.log(`[Outage Webhook] Executing SSH command on ${sshServer.name}: ${recoveryCommand}`)
+            sshResult = await execSshCommand(sshServer, recoveryCommand)
+            console.log(`[Outage Webhook] SSH command exited with code ${sshResult.code}`)
+            break // Success - stop trying other IPs
+          } catch (sshError) {
+            console.error(`[Outage Webhook] SSH command failed on ${sshServer.name} (${ip}):`, sshError)
+            // Try next IP
+            continue
+          }
+        }
+      }
+
+      if (!matchedSshServer) {
+        // Send Telegram notification for failure
+        if (isTelegramEnabled()) {
+          const logText = formatOutageLog({
+            event: 'ssh_recovery',
+            configId,
+            serverId,
+            address,
+            port,
+            resolvedIps: ips,
+            command: settings.ssh_recovery_command ?? 'backpack -restart-all',
+            result: null,
+            timestamp,
+          })
+          await sendToAdmins(logText)
+        }
+
+        return NextResponse.json(
+          { success: false, error: `No SSH server found for any resolved IP of ${address} (resolved: ${ips.join(', ')})` },
+          { status: 404 },
+        )
+      }
+
+      // Send Telegram notification for SSH recovery attempt
+      if (isTelegramEnabled()) {
+        const logText = formatOutageLog({
+          event: 'ssh_recovery',
+          configId,
+          serverId,
+          address,
+          port,
+          resolvedIps: ips,
+          sshServer: matchedSshServer,
+          command: settings.ssh_recovery_command ?? 'backpack -restart-all',
+          result: sshResult,
+          timestamp,
+        })
+        await sendToAdmins(logText)
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `SSH recovery executed on ${matchedSshServer.name} (${matchedSshServer.ip})`,
+        executed: {
+          event,
+          configId,
+          serverId,
+          address,
+          port,
+          resolvedIps: ips,
+          sshServer: matchedSshServer,
+          command: settings.ssh_recovery_command ?? 'backpack -restart-all',
+          result: sshResult ? {
+            code: sshResult.code,
+            stdout: sshResult.stdout,
+            stderr: sshResult.stderr,
+          } : null,
+        },
+      }, { status: 200 })
+    }
+
+    // For other events (future: config_up, etc.), just acknowledge
     return NextResponse.json({
       success: true,
       message: `Outage webhook received: ${event}`,

@@ -24,6 +24,18 @@ export const DEFAULT_SETTINGS = {
   scheduler_tick_sec: 15,
   /** Webhook URL to call when a config goes down (POST with address, port, etc.) */
   outage_webhook_url: '',
+  /** SSH recovery command to run when config goes down (empty = disabled) */
+  ssh_recovery_command: 'backpack -restart-all',
+  /** Telegram bot token for notifications */
+  telegram_bot_token: '',
+  /** Comma-separated list of Telegram admin chat IDs */
+  telegram_admin_ids: '',
+  /** SOCKS5 proxy address for Telegram (e.g., 127.0.0.1) */
+  telegram_proxy_address: '127.0.0.1',
+  /** SOCKS5 proxy port for Telegram (e.g., 10808) */
+  telegram_proxy_port: 10808,
+  /** Enable/disable Telegram notifications */
+  telegram_enabled: 0,
 } as const
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS
