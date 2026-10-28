@@ -22,6 +22,8 @@ export const DEFAULT_SETTINGS = {
   sub_refresh_sec: 3600,
   /** فاصله‌ی حلقه‌ی زمان‌بند (ثانیه) */
   scheduler_tick_sec: 15,
+  /** Webhook URL to call when a config goes down (POST with address, port, etc.) */
+  outage_webhook_url: '',
 } as const
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS

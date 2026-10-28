@@ -179,6 +179,18 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
                   className="text-sm"
                 />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="outage_webhook_url" className="text-xs">آدرس وب‌هوک قطعی</Label>
+                <Input
+                  id="outage_webhook_url"
+                  name="outage_webhook_url"
+                  type="url"
+                  placeholder="https://example.com/webhook"
+                  defaultValue={initialSettings.outage_webhook_url}
+                  dir="ltr"
+                  className="text-sm"
+                />
+              </div>
               <Button type="submit" className="w-full mt-2">
                 <Save className="me-2 size-4" />
                 ذخیره تنظیمات

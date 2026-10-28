@@ -321,6 +321,9 @@ export function recordChecks(
   const opened: number[] = []
   const closed: number[] = []
 
+  // User-configured webhook URL, called once when a config transitions to DOWN
+  const outageWebhookUrl = getSettings(db).outage_webhook_url
+
   const getConfig = db.prepare('SELECT id, fail_streak, status, server_id, address, port FROM configs WHERE id = ?')
   const insertCheck = db.prepare(
     `INSERT INTO checks (config_id, ts, ok, status, latency_ms, ttfb_ms, http_status, error)
@@ -392,6 +395,27 @@ export function recordChecks(
         } else {
           openIncident.run(configId, now, failStreak, result.error)
           opened.push(configId)
+
+          // Notify the user-configured webhook on the DOWN transition (fire and forget)
+          if (outageWebhookUrl) {
+            fetch(outageWebhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event: 'config_down',
+                configId,
+                serverId: config.server_id,
+                address: config.address,
+                port: config.port,
+                failStreak,
+                threshold: failThreshold,
+                error: result.error,
+                timestamp: now,
+              }),
+            }).catch((err) =>
+              console.error(`[recordChecks] Outage webhook failed for config ${configId}: ${err.message}`),
+            )
+          }
 
           // Trigger Webhook for Down Event
           // We use a non-blocking fetch to avoid delaying the checker
