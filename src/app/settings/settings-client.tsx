@@ -13,7 +13,6 @@ import { Separator } from '@/components/ui/separator'
 import { Toaster, toast } from 'sonner'
 import { saveSettingsAction, changePasswordAction } from './actions'
 import { DEFAULT_SETTINGS, Settings } from '@/lib/db/settings'
-import { authEnabled } from '@/lib/auth/client-guard'
 import { toFa } from '@/lib/format'
 
 interface SettingsClientProps {
@@ -351,9 +350,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
                 <p className="font-medium text-sm">احراز هویت پنل</p>
                 <p className="text-xs text-muted-foreground">محافظت از نشست (Session)</p>
               </div>
-              <Badge variant={authEnabled() ? 'default' : 'destructive'}>
-                {authEnabled() ? 'فعال' : 'غیرفعال'}
-              </Badge>
+              <Badge variant="default">فعال</Badge>
             </div>
           </div>
 

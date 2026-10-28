@@ -1,6 +1,7 @@
 import type { DatabaseSync, SQLOutputValue } from 'node:sqlite'
 
 import { getDb, transaction } from './index'
+import { getSettings } from './settings'
 import type {
   Check,
   Config,
@@ -16,32 +17,47 @@ import type {
 /* ───────────────────────────── سرورها ───────────────────────────── */
 
 const SERVER_WITH_STATS_SQL = `
-  WITH ranked AS (
+  WITH enabled AS (
+    SELECT
+      id,
+      server_id,
+      status,
+      last_latency_ms,
+      last_check_at
+    FROM configs
+    WHERE enabled = 1
+  ),
+  ranked AS (
     SELECT
       server_id,
       last_latency_ms AS latency_ms,
       ROW_NUMBER() OVER (PARTITION BY server_id ORDER BY last_latency_ms) AS rn,
       COUNT(*) OVER (PARTITION BY server_id) AS cnt
-    FROM configs
-    WHERE enabled = 1
-      AND last_latency_ms IS NOT NULL
+    FROM enabled
+    WHERE last_latency_ms IS NOT NULL
   ),
-  median AS (
-    SELECT server_id, latency_ms
+  lat_stats AS (
+    SELECT
+      server_id,
+      AVG(latency_ms) AS avg_latency,
+      MAX(CASE WHEN rn = CAST((cnt + 1) / 2 AS INTEGER) THEN latency_ms END) AS median_latency,
+      MAX(CASE WHEN rn = CAST((cnt * 95 + 99) / 100 AS INTEGER) THEN latency_ms END) AS p95_latency
     FROM ranked
-    WHERE rn = CAST((cnt + 1) / 2 AS INTEGER)
+    GROUP BY server_id
   )
 
   SELECT
     s.*,
-    COALESCE(COUNT(c.id), 0)                                        AS config_count,
-    COALESCE(SUM(CASE WHEN c.status = 'up'   THEN 1 ELSE 0 END), 0) AS up_count,
-    COALESCE(SUM(CASE WHEN c.status = 'down' THEN 1 ELSE 0 END), 0) AS down_count,
-    m.latency_ms                                                    AS avg_latency,
-    MAX(c.last_check_at)                                            AS last_check_at
+    COALESCE(COUNT(e.id), 0)                                        AS config_count,
+    COALESCE(SUM(CASE WHEN e.status = 'up'   THEN 1 ELSE 0 END), 0) AS up_count,
+    COALESCE(SUM(CASE WHEN e.status = 'down' THEN 1 ELSE 0 END), 0) AS down_count,
+    ls.avg_latency                                                  AS avg_latency,
+    ls.median_latency                                               AS median_latency,
+    ls.p95_latency                                                  AS p95_latency,
+    MAX(e.last_check_at)                                          AS last_check_at
   FROM servers s
-  LEFT JOIN configs c ON c.server_id = s.id AND c.enabled = 1
-  LEFT JOIN median m ON m.server_id = s.id
+  LEFT JOIN enabled e ON e.server_id = s.id
+  LEFT JOIN lat_stats ls ON ls.server_id = s.id
 `
 
 /** تبدیل تمام bigintهای یک شیء به number */
@@ -305,7 +321,7 @@ export function recordChecks(
   const opened: number[] = []
   const closed: number[] = []
 
-  const getConfig = db.prepare('SELECT id, fail_streak, status FROM configs WHERE id = ?')
+  const getConfig = db.prepare('SELECT id, fail_streak, status, server_id, address, port FROM configs WHERE id = ?')
   const insertCheck = db.prepare(
     `INSERT INTO checks (config_id, ts, ok, status, latency_ms, ttfb_ms, http_status, error)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -329,17 +345,11 @@ export function recordChecks(
   for (const { configId, result } of results) {
     try {
       const config = getConfig.get(configId) as
-        | { id: number; fail_streak: number; status: string }
+        | { id: number; fail_streak: number; status: string; server_id: number; address: string | null; port: number | null }
         | undefined
       if (!config) {
         console.error(`[recordChecks] Config ${configId} not found in database. Skipping.`);
         continue
-      }
-
-      // Debug: verify FK existence immediately before insert
-      const verify = db.prepare('SELECT 1 FROM configs WHERE id = ?').get(configId)
-      if (!verify) {
-        console.error(`[recordChecks] FK DEBUG: Config ${configId} disappeared just before insert!`)
       }
 
       const previousStatus = config.status
@@ -382,6 +392,21 @@ export function recordChecks(
         } else {
           openIncident.run(configId, now, failStreak, result.error)
           opened.push(configId)
+
+          // Trigger Webhook for Down Event
+          // We use a non-blocking fetch to avoid delaying the checker
+          fetch(`${process.env.APP_URL ?? 'http://localhost:3000'}/api/webhooks/recovery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              configId,
+              serverId: config.server_id,
+              address: config.address,
+              port: config.port,
+              error: result.error,
+              failStreak,
+            }),
+          }).catch(err => console.error(`[recordChecks] Webhook trigger failed: ${err.message}`))
         }
       } else if (status === 'up' && (open || previousStatus === 'down')) {
         if (open) {

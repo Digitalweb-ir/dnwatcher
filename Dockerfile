@@ -30,13 +30,15 @@ FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-# پکیج‌های زمان اجرا: tini برای مدیریت سیگنال، sqlite-libs، ca-certificates، curl برای healthcheck
+# پکیج‌های زمان اجرا: tini برای مدیریت سیگنال، sqlite-libs، ca-certificates، curl برای healthcheck، wget و unzip برای نصب xray
 RUN apk add --no-cache \
     tini \
     sqlite-libs \
     ca-certificates \
     curl \
-    bash
+    bash \
+    wget \
+    unzip
 
 # کپی خروجی standalone از builder
 COPY --from=builder /app/public ./public
@@ -56,7 +58,7 @@ RUN set -eux; \
       aarch64) XRAY_ARCH="arm64-v8a" ;; \
       *) echo "Unsupported arch: $arch" && exit 1 ;; \
     esac; \
-    wget -qO /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip"; \
+    curl -L -o /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip"; \
     unzip -q /tmp/xray.zip -d /tmp/xray; \
     install -m 755 /tmp/xray/xray "${XRAY_BINARY}"; \
     rm -rf /tmp/xray /tmp/xray.zip; \

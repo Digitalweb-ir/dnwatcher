@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Loader2, PlugZap, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
@@ -24,16 +24,155 @@ import { faMs, faPercent, faRelative, toFa } from '@/lib/format'
 import type { ServerWithStats, ConfigWithStatus } from '@/lib/types'
 import { AppShell } from '@/components/app-shell'
 import Link from 'next/link'
+import { useLiveUpdates } from '@/components/providers/live-update-provider'
+
+/**
+ * Component for professional number animations.
+ */
+function AnimatedNumber({ value, className }: { value: number | null; className?: string }) {
+  const [displayValue, setDisplayValue] = useState(value ?? 0)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const prevValueRef = useRef(value ?? 0)
+  const animationRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (value === null) return
+    if (animationRef.current) cancelAnimationFrame(animationRef.current)
+
+    const start = prevValueRef.current
+    const end = value
+    prevValueRef.current = value
+
+    if (start === end) return
+
+    setIsAnimating(true)
+    const diff = Math.abs(end - start)
+    const duration = diff < 5 ? 900 : 500
+    const startTime = performance.now()
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const eased = diff < 5 ? progress : 1 - Math.pow(1 - progress, 3)
+      const current = Math.round(start + (end - start) * eased)
+      setDisplayValue(current)
+
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate)
+      } else {
+        animationRef.current = null
+        setIsAnimating(false)
+      }
+    }
+
+    animationRef.current = requestAnimationFrame(animate)
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+    }
+  }, [value])
+
+  if (value === null) return <span className={className}>—</span>
+  return (
+    <span
+      className={cn(
+        'tabular-nums inline-block relative',
+        isAnimating && 'animate-pulse text-primary',
+        className
+      )}
+      style={{
+        transition: 'transform 0.15s ease-out, color 0.15s ease-out',
+        transform: isAnimating ? 'scale(1.15)' : 'scale(1)',
+        color: isAnimating ? '#6366f1' : 'inherit',
+      }}
+    >
+      {toFa(displayValue)}
+    </span>
+  )
+}
+
+/**
+ * Independent component for each config to react to SSE pulses.
+ */
+function ConfigCard({ config }: { config: ConfigWithStatus }) {
+  // CRITICAL: Destructure 'updates' to trigger re-render on any SSE change
+  const { updates, getConfigStats } = useLiveUpdates()
+
+  // Depend on updates explicitly
+  const live = useMemo(() => getConfigStats(config, config.id), [updates, config])
+
+  const status = live.status ?? config.last_status
+  const latency = live.latency ?? config.last_latency_ms
+  const isTesting = live.isTesting
+  const isUp = status === 'up'
+
+  const latencyColor = latency
+    ? latency < 150 ? 'text-up' : latency < 300 ? 'text-yellow-400' : 'text-down'
+    : 'text-muted-foreground'
+
+  return (
+    <Card className={cn(
+      'group relative overflow-hidden transition-all duration-300 border-border/50 bg-card/40 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg',
+      isTesting && 'ring-2 ring-primary/50'
+    )}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <StatusDot tone={toneOfStatus(status)} pulse={isUp && !isTesting} className="mt-1" />
+            <div className="min-w-0">
+              <Link
+                href={`/configs/${config.id}`}
+                className="truncate text-sm font-bold hover:text-primary transition-colors"
+              >
+                {config.label ?? `کانفیگ #${config.id}`}
+              </Link>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="secondary" className="uppercase text-[9px] px-1.5 py-0">
+                  {config.protocol.toUpperCase()}
+                </Badge>
+                <span className={cn('text-[10px] tabular-nums', isTesting ? 'text-primary' : 'text-muted-foreground')}>
+                  {isTesting ? 'در حال تست...' : config.last_checked_at ? faRelative(config.last_checked_at) : 'بدون تست'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <Button asChild variant="ghost" size="icon" className="size-8 text-muted-foreground group-hover:text-primary transition-colors">
+            <Link href={`/configs/${config.id}`}>
+              <ChevronLeft className="size-4" />
+            </Link>
+          </Button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-1 rounded-xl bg-muted/30 p-2 transition-colors group-hover:bg-muted/50">
+            <span className="text-[9px] text-muted-foreground">تأخیر لحظه‌ای</span>
+            <span className={cn('text-sm font-bold tabular-nums', latencyColor)}>
+              <AnimatedNumber value={latency} />
+            </span>
+          </div>
+          <div className="flex flex-col gap-1 rounded-xl bg-muted/30 p-2 transition-colors group-hover:bg-muted/50">
+            <span className="text-[9px] text-muted-foreground">دسترس‌پذیری</span>
+            <span className={cn('text-sm font-bold tabular-nums', isUp ? 'text-up' : 'text-down')}>
+              {config.uptime_24h !== null ? faPercent(config.uptime_24h) : '—'}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 interface ServerDetailClientProps {
   server: ServerWithStats
   configs: ConfigWithStatus[]
 }
 
-export function ServerDetailClient({ server, configs }: ServerDetailClientProps) {
+export function ServerDetailClient({ server, configs: initialConfigs }: ServerDetailClientProps) {
   const router = useRouter()
   const [toDelete, setToDelete] = useState<ServerWithStats | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+
+  // CRITICAL: Destructure 'updates' to trigger re-render on any SSE change
+  const { updates, getServerStats, isLive } = useLiveUpdates()
 
   async function act(action: 'check' | 'refresh') {
     const key = `${server.id}:${action}`
@@ -92,8 +231,10 @@ export function ServerDetailClient({ server, configs }: ServerDetailClientProps)
     }
   }
 
-  const healthy = server.down_count === 0 && server.up_count > 0
-  const tone = server.up_count + server.down_count === 0 ? 'idle' : healthy ? 'up' : 'down'
+  // serverStats now depends on the updates object via getServerStats
+  const serverStats = useMemo(() => getServerStats(server, server.id), [updates, server])
+  const healthy = serverStats.down === 0 && serverStats.up > 0
+  const tone = serverStats.up + serverStats.down === 0 ? 'idle' : healthy ? 'up' : 'down'
 
   return (
     <AppShell
@@ -144,12 +285,60 @@ export function ServerDetailClient({ server, configs }: ServerDetailClientProps)
                     <h1 className="text-lg font-bold">{server.name}</h1>
                     <Badge variant="secondary" className="text-[10px]">{flagOf(server.country)} {countryName(server.country)}</Badge>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>کانفیگ‌ها: <span className="fa-num font-medium text-foreground">{toFa(server.config_count)}</span></span>
-                    <span className="text-up">سالم: <span className="fa-num font-medium">{toFa(server.up_count)}</span></span>
-                    <span className="text-down">خطا: <span className="fa-num font-medium">{toFa(server.down_count)}</span></span>
-                    <span>میانگین: <span className="fa-num font-medium text-foreground">{server.avg_latency ? faMs(server.avg_latency) : '—'}</span></span>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted/40 border border-border/50">
+                  <span className="text-muted-foreground">کانفیگ‌ها:</span>
+                  <span className="fa-num font-bold text-foreground"><AnimatedNumber value={serverStats.up + serverStats.down} /></span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-up/10 border border-up/20">
+                  <span className="text-up">سالم:</span>
+                  <span className="fa-num font-bold text-up"><AnimatedNumber value={serverStats.up} /></span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-down/10 border border-down/20">
+                  <span className="text-down">خطا:</span>
+                  <span className="fa-num font-bold text-down"><AnimatedNumber value={serverStats.down} /></span>
+                </div>
+              </div>
+
+              {/* Latency Stats - Modern Card Layout */}
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3" role="list" aria-label="آمار تاخیر سرور">
+                <div className="group rounded-2xl bg-card border border-border/50 p-4 transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5" role="listitem">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">میانگین</span>
+                    <div className="size-2 rounded-full bg-primary/20 group-hover:bg-primary/30 transition-colors" aria-hidden="true" />
                   </div>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-2xl font-bold tabular-nums text-foreground">
+                      <AnimatedNumber value={serverStats.avgLatency ? Math.round(serverStats.avgLatency) : 0} />
+                    </span>
+                    <span className="text-[11px] text-muted-foreground self-end mb-0.5">ms</span>
+                  </div>
+                </div>
+                <div className="group rounded-2xl bg-card border border-border/50 p-4 transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5" role="listitem">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">میانه</span>
+                    <div className="size-2 rounded-full bg-yellow-500/20 group-hover:bg-yellow-500/30 transition-colors" aria-hidden="true" />
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-2xl font-bold tabular-nums text-foreground">
+                      <AnimatedNumber value={server.median_latency ? Math.round(server.median_latency) : 0} />
+                    </span>
+                    <span className="text-[11px] text-muted-foreground self-end mb-0.5">ms</span>
+                  </div>
+                </div>
+                <div className="group rounded-2xl bg-card border border-border/50 p-4 transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5" role="listitem">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">صدک ۹۵</span>
+                    <div className="size-2 rounded-full bg-orange-500/20 group-hover:bg-orange-500/30 transition-colors" aria-hidden="true" />
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-2xl font-bold tabular-nums text-foreground">
+                      <AnimatedNumber value={server.p95_latency ? Math.round(server.p95_latency) : 0} />
+                    </span>
+                    <span className="text-[11px] text-muted-foreground self-end mb-0.5">ms</span>
+                  </div>
+                </div>
+              </div>
                 </div>
               </div>
 
@@ -179,12 +368,20 @@ export function ServerDetailClient({ server, configs }: ServerDetailClientProps)
               <PlugZap className="size-4 text-primary" />
               کانفیگ‌های فعال
             </h2>
-            <Badge variant="outline" className="text-[10px] font-normal">
-              {toFa(configs.length)} مورد یافت شد
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px] font-normal">
+                {toFa(initialConfigs.length)} مورد یافت شد
+              </Badge>
+              {isLive && (
+                <span className="flex items-center gap-1.5 text-up text-xs">
+                  <span className="size-2 rounded-full bg-up animate-pulse" />
+                  زنده
+                </span>
+              )}
+            </div>
           </div>
 
-          {configs.length === 0 ? (
+          {initialConfigs.length === 0 ? (
             <Card className="border-dashed bg-card/40">
               <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
                 <span className="grid size-12 place-items-center rounded-2xl bg-primary/12 text-primary">
@@ -199,60 +396,9 @@ export function ServerDetailClient({ server, configs }: ServerDetailClientProps)
             </Card>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {configs.map((config) => {
-                const isUp = config.last_status === 'up'
-                const latencyColor = config.last_latency_ms
-                  ? config.last_latency_ms < 150 ? 'text-up' : config.last_latency_ms < 300 ? 'text-yellow-400' : 'text-down'
-                  : 'text-muted-foreground'
-
-                return (
-                  <Card key={config.id} className="group relative overflow-hidden transition-all duration-300 border-border/50 bg-card/40 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <StatusDot tone={toneOfStatus(config.last_status)} pulse={isUp} className="mt-1" />
-                          <div className="min-w-0">
-                            <Link
-                              href={`/configs/${config.id}`}
-                              className="truncate text-sm font-bold hover:text-primary transition-colors"
-                            >
-                              {config.label ?? `کانفیگ #${config.id}`}
-                            </Link>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="secondary" className="uppercase text-[9px] px-1.5 py-0">
-                                {config.protocol.toUpperCase()}
-                              </Badge>
-                              <span className="text-[10px] text-muted-foreground tabular-nums">
-                                {config.last_checked_at ? faRelative(config.last_checked_at) : 'بدون تست'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <Button asChild variant="ghost" size="icon" className="size-8 text-muted-foreground group-hover:text-primary transition-colors">
-                          <Link href={`/configs/${config.id}`}>
-                            <ChevronLeft className="size-4" />
-                          </Link>
-                        </Button>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-2 gap-2">
-                        <div className="flex flex-col gap-1 rounded-xl bg-muted/30 p-2 transition-colors group-hover:bg-muted/50">
-                          <span className="text-[9px] text-muted-foreground">تأخیر لحظه‌ای</span>
-                          <span className={cn('text-sm font-bold tabular-nums', latencyColor)}>
-                            {config.last_latency_ms !== null ? faMs(config.last_latency_ms) : '—'}
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-1 rounded-xl bg-muted/30 p-2 transition-colors group-hover:bg-muted/50">
-                          <span className="text-[9px] text-muted-foreground">دسترس‌پذیری</span>
-                          <span className={cn('text-sm font-bold tabular-nums', isUp ? 'text-up' : 'text-down')}>
-                            {config.uptime_24h !== null ? faPercent(config.uptime_24h, 1) : '—'}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+              {initialConfigs.map((config) => (
+                <ConfigCard key={config.id} config={config} />
+              ))}
             </div>
           )}
         </section>

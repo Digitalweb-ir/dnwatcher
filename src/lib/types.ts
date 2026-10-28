@@ -23,7 +23,14 @@ export interface ServerWithStats extends Server {
   config_count: number
   up_count: number
   down_count: number
+
+  /** میانگین latency آخرین تست موفق کانفیگ‌های فعال */
   avg_latency: number | null
+  /** میانه latency آخرین تست موفق کانفیگ‌های فعال */
+  median_latency: number | null
+  /** صدک ۹۵ latency آخرین تست موفق کانفیگ‌های فعال */
+  p95_latency: number | null
+
   last_check_at: number | null
 }
 
@@ -58,6 +65,7 @@ export interface Check {
   ok: 0 | 1
   status: CheckStatus
   latency_ms: number | null
+  tcp_ping_ms: number | null
   ttfb_ms: number | null
   http_status: number | null
   error: string | null
@@ -89,6 +97,7 @@ export interface TestResult {
   fingerprint: string
   ok: boolean
   latency_ms: number | null
+  tcp_ping_ms: number | null
   ttfb_ms: number | null
   http_status: number | null
   error: string | null

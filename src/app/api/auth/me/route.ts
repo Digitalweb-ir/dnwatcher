@@ -1,17 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { verifySessionToken, SESSION_COOKIE } from '@/lib/auth/session'
 
-import { SESSION_COOKIE, verifySession } from '@/lib/auth/session'
-
-/** آیا کاربر وارد شده است؟ */
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET() {
   try {
-    const cookie = request.cookies.get(SESSION_COOKIE)?.value
-    const session = await verifySession(cookie)
+    const cookieStore = await cookies()
+    const token = cookieStore.get(SESSION_COOKIE)?.value
+    const session = await verifySessionToken(token)
+
     if (!session) {
-      return NextResponse.json({ authenticated: false }, { status: 401 })
+      return NextResponse.json({ authenticated: false }, { status: 200 })
     }
-    return NextResponse.json({ authenticated: true, user: { role: 'admin' } })
-  } catch {
-    return NextResponse.json({ authenticated: false }, { status: 401 })
+
+    return NextResponse.json({
+      authenticated: true,
+      user: {
+        id: session.userId,
+        role: session.role,
+      }
+    }, { status: 200 })
+  } catch (error) {
+    return NextResponse.json({ authenticated: false }, { status: 200 })
   }
 }

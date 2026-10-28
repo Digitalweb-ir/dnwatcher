@@ -12,6 +12,13 @@ export interface XrayConfig {
   inbounds: unknown[]
   outbounds: XrayOutbound[]
   routing: { domainStrategy: string; rules: unknown[] }
+  dns?: {
+    servers: Array<{
+      address: string
+      port: number
+      domains?: string[]
+    }>
+  }
 }
 
 export interface BatchConfigResult {
@@ -45,7 +52,22 @@ export function buildBatchConfig(outbounds: XrayOutbound[], portBase: number): B
       log: { loglevel: 'warning' },
       inbounds,
       outbounds: outs,
-      routing: { domainStrategy: 'AsIs', rules },
+      routing: {
+        domainStrategy: 'IPIfNonexistent',
+        rules
+      },
+      dns: {
+        servers: [
+          {
+            address: '8.8.8.8',
+            port: 53,
+          },
+          {
+            address: '1.1.1.1',
+            port: 53,
+          },
+        ],
+      },
     },
     ports,
   }

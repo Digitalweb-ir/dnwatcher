@@ -1,10 +1,5 @@
 /**
  * کلاینت سبک SOCKS5 + HTTP/HTTPS برای تست کانفیگ‌ها.
- *
- * چرا بدون کتابخانه؟
- *   می‌خواهیم زمان‌بندی دقیق (TTFB) و کنترل کامل روی سوکت داشته باشیم و
- *   وابستگی سنگینی به پروژه اضافه نکنیم. هر inbound موتور Xray یک پروکسی
- *   SOCKS5 محلی است؛ کافی است از داخل آن تونل یک درخواست HTTP بزنیم.
  */
 import net from 'node:net'
 import tls from 'node:tls'
@@ -14,6 +9,7 @@ import type { ErrorKind } from '@/lib/types'
 export interface ProbeResult {
   ok: boolean
   latency_ms: number | null
+  tcp_ping_ms: number | null
   ttfb_ms: number | null
   http_status: number | null
   error: ErrorKind | null
@@ -25,6 +21,30 @@ export interface TunnelOptions {
   targetHost: string
   targetPort: number
   timeoutMs: number
+}
+
+/**
+ * اندازه‌گیری تأخیر خام TCP (بدون تونل).
+ * این همان مقداری است که در v2rayN به عنوان Ping نمایش داده می‌شود.
+ */
+export async function measureTcpPing(host: string, port: number, timeoutMs: number = 5000): Promise<number | null> {
+  return new Promise((resolve) => {
+    const started = process.hrtime.bigint()
+    const socket = net.connect({ host, port })
+
+    const done = (ms: number | null) => {
+      socket.destroy()
+      resolve(ms)
+    }
+
+    socket.once('connect', () => {
+      const elapsed = Number(process.hrtime.bigint() - started) / 1e6
+      done(elapsed)
+    })
+
+    socket.once('error', () => done(null))
+    socket.setTimeout(timeoutMs, () => done(null))
+  })
 }
 
 /** یک سوکت TCP که از طریق پروکسی SOCKS5 به مقصد تونل شده است. */
@@ -101,18 +121,22 @@ function buildConnectRequest(host: string, port: number): Buffer {
 
 /**
  * یک درخواست HTTP/HTTPS از داخل تونل SOCKS5 می‌زند و متریک‌ها را برمی‌گرداند.
+ *
+ * برای رسیدن به دقت v2rayN:
+ * 1. زمان‌سنجی دقیقاً از لحظه ارسال درخواست HTTP شروع می‌شود (حذف سربار SOCKS5).
+ * 2. TTFB (Time to First Byte) به عنوان معیار اصلی لتنسی در نظر گرفته می‌شود.
  */
 export async function probeThroughSocks5(
   proxyPort: number,
   url: string,
   timeoutMs: number,
+  isWarmUp = false,
 ): Promise<ProbeResult> {
   const target = new URL(url)
   const isTls = target.protocol === 'https:'
   const targetPort = target.port ? Number(target.port) : isTls ? 443 : 80
   const path = `${target.pathname}${target.search}` || '/'
 
-  const started = Date.now()
   let rawSocket: net.Socket
   try {
     rawSocket = await openSocks5Tunnel({
@@ -123,7 +147,7 @@ export async function probeThroughSocks5(
       timeoutMs,
     })
   } catch (error) {
-    return { ok: false, latency_ms: null, ttfb_ms: null, http_status: null, error: classify(error) }
+    return { ok: false, latency_ms: null, tcp_ping_ms: null, ttfb_ms: null, http_status: null, error: classify(error) }
   }
 
   let connection: net.Socket
@@ -131,7 +155,7 @@ export async function probeThroughSocks5(
     connection = isTls ? await wrapTls(rawSocket, target.hostname) : rawSocket
   } catch (error) {
     rawSocket.destroy()
-    return { ok: false, latency_ms: null, ttfb_ms: null, http_status: null, error: classify(error) }
+    return { ok: false, latency_ms: null, tcp_ping_ms: null, ttfb_ms: null, http_status: null, error: classify(error) }
   }
 
   return new Promise<ProbeResult>((resolve) => {
@@ -152,6 +176,7 @@ export async function probeThroughSocks5(
         finish({
           ok: false,
           latency_ms: null,
+          tcp_ping_ms: null,
           ttfb_ms: ttfb,
           http_status: null,
           error: 'timeout',
@@ -160,7 +185,7 @@ export async function probeThroughSocks5(
     )
 
     connection.on('data', (chunk) => {
-      if (ttfb === null) ttfb = Date.now() - started
+      if (ttfb === null) ttfb = Number(process.hrtime.bigint() - requestSentAt) / 1e6
       received += chunk.toString('latin1')
       const headerEnd = received.indexOf('\r\n\r\n')
       if (headerEnd === -1) return
@@ -172,7 +197,8 @@ export async function probeThroughSocks5(
 
       finish({
         ok,
-        latency_ms: Date.now() - started,
+        latency_ms: Number(process.hrtime.bigint() - requestSentAt) / 1e6,
+        tcp_ping_ms: null,
         ttfb_ms: ttfb,
         http_status: status,
         error: ok ? null : 'http',
@@ -180,12 +206,13 @@ export async function probeThroughSocks5(
     })
 
     connection.once('error', (err) =>
-      finish({ ok: false, latency_ms: null, ttfb_ms: ttfb, http_status: null, error: classify(err) }),
+      finish({ ok: false, latency_ms: null, tcp_ping_ms: null, ttfb_ms: ttfb, http_status: null, error: classify(err) }),
     )
     connection.once('close', () =>
-      finish({ ok: false, latency_ms: null, ttfb_ms: ttfb, http_status: null, error: 'protocol' }),
+      finish({ ok: false, latency_ms: null, tcp_ping_ms: null, ttfb_ms: ttfb, http_status: null, error: 'protocol' }),
     )
 
+    const requestSentAt = process.hrtime.bigint()
     connection.write(
       `GET ${path} HTTP/1.1\r\nHost: ${target.hostname}\r\nUser-Agent: dnw/1.0\r\nAccept: */*\r\nConnection: close\r\n\r\n`,
     )

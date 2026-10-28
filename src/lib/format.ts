@@ -52,7 +52,7 @@ export function faRelative(ts: number): string {
   return `${toFa(Math.floor(diff / 86400))} روز پیش`
 }
 
-export const faPercent = (v: number, digits = 2) =>
+export const faPercent = (v: number, digits = 0) =>
   `${new Intl.NumberFormat('fa-IR', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,

@@ -10,13 +10,14 @@ import {
   listEnabledConfigsByServer,
   listEnabledServers,
   recordChecks,
+  listServers,
 } from '@/lib/db/queries'
 import { getSettings } from '@/lib/db/settings'
 import { reconcileServer } from '@/lib/sub/reconcile'
 import type { Server, TestResult } from '@/lib/types'
 import { hasXray } from '@/lib/xray/binary'
 import { testConfigs, type ConfigTestResult } from '@/lib/xray/tester'
-import { emitConfigCheck, emitConfigStart, emit } from '@/app/api/stream/route'
+import { emitConfigCheck, emitConfigStart, emitCycleState, emitServerStats, emitServerUpdate } from '@/lib/service/sse'
 
 /** وضعیت آخرین دور بررسی — برای نمایش در UI */
 export interface CycleState {
@@ -100,11 +101,9 @@ export async function checkServer(
   console.log(`[check-server] Testing ${configs.length} configs for server ${serverId}...`)
 
   try {
-    // ۱. اعلام شروع تست برای کل سرور (در صورت نیاز) و هر کانفیگ
     const configsForServer = listEnabledConfigsByServer(serverId, db)
-    configsForServer.forEach(c => emitConfigStart(c.id))
+    configsForServer.forEach(c => emitConfigStart(serverId, c.id))
 
-    // اضافه کردن Hard Timeout برای کل عملیات تست سرور (مثلا حداکثر ۶۰ ثانیه)
     const testPromise = testConfigs(configs, {
       testUrl: settings.test_url,
       timeoutMs: settings.request_timeout_ms,
@@ -124,11 +123,25 @@ export async function checkServer(
 
     recordChecks(checkResults, settings.fail_threshold, db)
 
-    // ۲. ارسال رویداد نتیجه برای هر کانفیگ
     for (const item of results) {
-      emitConfigCheck(item.configId, {
+      emitConfigCheck(serverId, item.configId, {
         ok: item.result.ok,
         latency_ms: item.result.latency_ms,
+      })
+    }
+
+    const fresh = listServers(db).find((s) => s.id === serverId)
+    if (fresh) {
+      emitServerStats(serverId, {
+        up: fresh.up_count,
+        down: fresh.down_count,
+        avgLatency: fresh.avg_latency,
+      })
+      emitServerUpdate(serverId, {
+        up: fresh.up_count,
+        down: fresh.down_count,
+        avgLatency: fresh.avg_latency,
+        totalConfigs: fresh.config_count,
       })
     }
 
@@ -188,8 +201,7 @@ export async function runCheckCycle(
     errors: [],
   }
 
-  // فوراً وضعیت شروع را پخش کن
-  emit('cycle:state', getCycleState())
+  emitCycleState(getCycleState())
 
   try {
     for (const server of servers) {
@@ -201,6 +213,7 @@ export async function runCheckCycle(
         cycleState.up += result.up
         cycleState.down += result.down
         if (result.error) cycleState.errors.push(`${server.name}: ${result.error}`)
+        emitCycleState(getCycleState())
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         cycleState.errors.push(`${server.name}: ${message}`)
@@ -209,8 +222,7 @@ export async function runCheckCycle(
   } finally {
     cycleState.running = false
     cycleState.finishedAt = Date.now()
-    // وضعیت پایان را پخش کن
-    emit('cycle:state', getCycleState())
+    emitCycleState(getCycleState())
   }
 
   return getCycleState()

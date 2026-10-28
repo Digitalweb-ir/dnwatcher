@@ -181,6 +181,15 @@ const MIGRATIONS: string[] = [
 
   PRAGMA foreign_keys = ON;
   `,
+  `CREATE TABLE ssh_servers (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    name     TEXT    NOT NULL,
+    ip       TEXT    NOT NULL,
+    user     TEXT    NOT NULL,
+    password TEXT    NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  `,
 ]
 
 const SCHEMA_VERSION = MIGRATIONS.length

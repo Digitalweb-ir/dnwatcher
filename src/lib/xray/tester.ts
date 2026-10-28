@@ -9,7 +9,7 @@ import { parseUri } from '@/lib/sub/parse'
 import type { Config, ErrorKind, ParsedConfig, TestResult, XrayOutbound } from '@/lib/types'
 
 import { XRAY_NOT_FOUND, runBatch } from './runner'
-import type { ProbeResult } from './socks5'
+import { measureTcpPing, type ProbeResult } from './socks5'
 
 export interface TestOptions {
   testUrl: string
@@ -60,13 +60,21 @@ export async function testConfigs(
       // runBatch حالا داخلیتاً تست‌ها را ترتیبی (Sequential) اجرا می‌کند.
       const probes = await runBatch(outbounds, options)
 
-      chunk.forEach((item, index) => {
+      for (let j = 0; j < chunk.length; j++) {
+        const item = chunk[j]
+        const probe = probes[j]
+
+        // اندازه‌گیری TCP Ping برای هر کانفیگ (بدون نیاز به Xray)
+        const tcpPing = (item.parsed.address && item.parsed.port)
+          ? await measureTcpPing(item.parsed.address, item.parsed.port, options.timeoutMs)
+          : null
+
         out.push({
           configId: item.config.id,
           fingerprint: item.config.fingerprint,
-          result: toTestResult(item.config.fingerprint, probes[index]),
+          result: toTestResult(item.config.fingerprint, { ...probe, tcp_ping_ms: tcpPing }),
         })
-      })
+      }
     } catch (error) {
       if (error instanceof Error && error.message === XRAY_NOT_FOUND) throw error
 
@@ -100,6 +108,7 @@ function toTestResult(fingerprint: string, probe: ProbeResult | undefined): Test
       fingerprint,
       ok: false,
       latency_ms: null,
+      tcp_ping_ms: null,
       ttfb_ms: null,
       http_status: null,
       error: 'unknown',
@@ -109,6 +118,7 @@ function toTestResult(fingerprint: string, probe: ProbeResult | undefined): Test
     fingerprint,
     ok: probe.ok,
     latency_ms: probe.latency_ms,
+    tcp_ping_ms: probe.tcp_ping_ms,
     ttfb_ms: probe.ttfb_ms,
     http_status: probe.http_status,
     error: probe.error,
@@ -116,5 +126,5 @@ function toTestResult(fingerprint: string, probe: ProbeResult | undefined): Test
 }
 
 function failResult(kind: ErrorKind): ProbeResult {
-  return { ok: false, latency_ms: null, ttfb_ms: null, http_status: null, error: kind }
+  return { ok: false, latency_ms: null, tcp_ping_ms: null, ttfb_ms: null, http_status: null, error: kind }
 }

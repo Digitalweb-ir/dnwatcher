@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -17,6 +15,8 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - DB_PATH=/data/watch.db
       - DEBUG=${DEBUG:-false}
+      # تنظیم برای کوکی در محیط‌های HTTP (مثل local development در Docker)
+      - FORCE_SECURE_COOKIE=false
       # ----- امنیتی (باید در .env تنظیم شوند) -----
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}

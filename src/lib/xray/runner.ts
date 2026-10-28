@@ -1,12 +1,5 @@
 /**
  * اجرای پروسه‌ی Xray برای یک دسته کانفیگ و تست همه‌ی inboundها.
- *
- * چرخه‌ی کار:
- *   ۱. نوشتن کانفیگ JSON در یک پوشه‌ی موقت
- *   ۲. spawn کردن باینری Xray
- *   ۳. انتظار تا باز شدن پورت‌های SOCKS5 (یا شکست)
- *   ۴. تست هم‌زمان همه‌ی پورت‌ها از داخل تونل
- *   ۵. kill پروسه و پاک‌سازی فایل موقت
  */
 import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -19,6 +12,7 @@ import type { XrayOutbound } from '@/lib/types'
 import { findXrayBinary } from './binary'
 import { buildBatchConfig } from './build'
 import { probeThroughSocks5, type ProbeResult } from './socks5'
+import { LatencyQueue } from './queue'
 
 export interface RunOptions {
   testUrl: string
@@ -28,16 +22,14 @@ export interface RunOptions {
   readyTimeoutMs?: number
 }
 
-/** خطای نبود باینری — تا لایه‌ی بالاتر بتواند پیام مناسب نشان دهد */
 export const XRAY_NOT_FOUND = 'XRAY_NOT_FOUND'
 
 const isDebug = process.env.DEBUG === 'true'
 const debugLog = (...args: any[]) => isDebug && console.log(`[xray-runner]`, ...args)
 
-/**
- * یک دسته outbound را تست می‌کند و نتیجه‌ی هر کدام را به ترتیب برمی‌گرداند.
- * اگر Xray در دسترس نباشد، خطای `XRAY_NOT_FOUND` پرتاب می‌شود.
- */
+// صف سراسری برای پردازش ترتیبی تست‌ها (جلوگیری از تداخل شبکه)
+const globalQueue = new LatencyQueue<void, ProbeResult>()
+
 export async function runBatch(
   outbounds: XrayOutbound[],
   options: RunOptions,
@@ -82,11 +74,26 @@ export async function runBatch(
     debugLog(`Waiting for ports to open: ${ports.join(', ')}`)
     await waitForPorts(ports, () => exited || child.exitCode !== null, options.readyTimeoutMs ?? 8000)
     debugLog('Ports are ready, starting probes...')
-    // مهم: داخل یک Xray مشترک باقی می‌مانیم، اما پروب‌ها را ترتیبی اجرا می‌کنیم
-    // تا latency هر کانفیگ از هم‌زمانی/تداخل شبکه تحت‌تأثیر قرار نگیرد.
+
     const results: ProbeResult[] = []
     for (const port of ports) {
-      results.push(await probeThroughSocks5(port, options.testUrl, options.timeoutMs))
+      // هر تست را به صف می‌فرستیم تا ترتیبی اجرا شود
+      const result = await globalQueue.add(async () => {
+        // ۱. Warm-up: یک درخواست اولیه برای گرم کردن تونل (TLS Handshake)
+        await probeThroughSocks5(port, options.testUrl, options.timeoutMs, true).catch(() => {})
+
+        // ۲. تست اصلی (Best-of-2)
+        const samples: ProbeResult[] = []
+        for (let s = 0; s < 2; s++) {
+          samples.push(await probeThroughSocks5(port, options.testUrl, options.timeoutMs))
+        }
+
+        const successful = samples.filter(p => p.ok).sort((a, b) => (a.latency_ms || 0) - (b.latency_ms || 0))
+
+        if (successful.length === 0) return samples[0]
+        return { ...successful[0], ok: true }
+      })
+      results.push(result)
     }
     return results
   } catch (error) {
@@ -101,7 +108,6 @@ export async function runBatch(
   }
 }
 
-/** انتظار تا باز شدن همه‌ی پورت‌ها؛ با تایم‌اوت و تشخیص خروج زودهنگام پروسه */
 async function waitForPorts(
   ports: number[],
   hasExited: () => boolean,
@@ -109,22 +115,13 @@ async function waitForPorts(
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs
   let attempts = 0
-
   while (Date.now() < deadline) {
     attempts++
-    if (hasExited()) {
-      debugLog(`Process exited prematurely at attempt ${attempts}`)
-      throw new Error('xray exited before ready')
-    }
+    if (hasExited()) throw new Error('xray exited before ready')
     const statuses = await Promise.all(ports.map((port) => isPortOpen(port)))
-    if (statuses.every(Boolean)) {
-      debugLog(`All ports opened in ${attempts} attempts`)
-      return
-    }
+    if (statuses.every(Boolean)) return
     await delay(120)
   }
-
-  debugLog(`Timeout reached after ${attempts} attempts`)
   throw new Error('xray ready timeout')
 }
 
