@@ -123,7 +123,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
          ORDER BY i.started_at DESC
          LIMIT ?`,
       )
-      .all(since, limit) as (Incident & { address: string | null; port: number | null; label: string | null; server_name: string })[]
+      .all(since, limit) as unknown as (Incident & { address: string | null; port: number | null; label: string | null; server_name: string })[]
 
     return NextResponse.json({ incidents })
   } catch (error) {
