@@ -14,7 +14,7 @@ import type {
   TestResult,
 } from '@/lib/types'
 
-/* ───────────────────────────── سرورها ───────────────────────────── */
+/* ───────────────────────────── Servers ───────────────────────────── */
 
 const SERVER_WITH_STATS_SQL = `
   WITH enabled AS (
@@ -60,7 +60,7 @@ const SERVER_WITH_STATS_SQL = `
   LEFT JOIN lat_stats ls ON ls.server_id = s.id
 `
 
-/** تبدیل تمام bigintهای یک شیء به number */
+/** Convert all bigints in an object to number */
 function toNumber<T>(obj: T): T {
   const result = { ...obj } as Record<string, unknown>
   for (const key of Object.keys(result)) {
@@ -171,7 +171,7 @@ export function deleteServer(id: number, db: DatabaseSync = getDb()): void {
   db.prepare('DELETE FROM servers WHERE id = ?').run(id)
 }
 
-/* ───────────────────────────── کانفیگ‌ها ───────────────────────────── */
+/* ───────────────────────────── Configs ───────────────────────────── */
 
 const CONFIG_WITH_STATUS_SQL = `
   SELECT
@@ -310,7 +310,7 @@ export function reconcileConfigs(
   })
 }
 
-/* ───────────────────────────── بررسی‌ها ───────────────────────────── */
+/* ───────────────────────────── Checks ───────────────────────────── */
 
 export function recordChecks(
   results: { configId: number; result: TestResult }[],
@@ -546,7 +546,7 @@ export function timelineCells(
   for (const row of rows) {
     const list = out.get(row.config_id) ?? []
     list.push({
-      // bucket از قبل میلی‌ثانیه و هم‌تراز با مرزهای بازه است
+      // bucket is already in ms and aligned to bucket boundaries
       t: Number(row.bucket),
       total: row.total,
       up: row.up,

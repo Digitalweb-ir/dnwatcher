@@ -1,4 +1,4 @@
-/** انواع مشترک سراسر برنامه */
+/** Shared types across the application */
 
 export type CheckStatus = 'up' | 'down'
 
@@ -7,9 +7,9 @@ export type Protocol = 'vless' | 'vmess' | 'trojan' | 'ss' | 'socks' | 'http'
 export interface Server {
   id: number
   name: string
-  /** کشور سرور — کد دوحرفی ISO یا نام فارسی (اختیاری) */
+  /** Server country — ISO 2-letter code or Persian name (optional) */
   country: string | null
-  /** لینک ساب رمزنگاری‌شده (AES-256-GCM) */
+  /** Encrypted subscription link (AES-256-GCM) */
   sub_url: string
   check_interval_sec: number
   enabled: 0 | 1
@@ -18,17 +18,17 @@ export interface Server {
   created_at: number
 }
 
-/** سرور به‌همراه آمار خلاصه — برای فهرست سرورها */
+/** Server with summary stats — for server list */
 export interface ServerWithStats extends Server {
   config_count: number
   up_count: number
   down_count: number
 
-  /** میانگین latency آخرین تست موفق کانفیگ‌های فعال */
+  /** Average latency of last successful test among active configs */
   avg_latency: number | null
-  /** میانه latency آخرین تست موفق کانفیگ‌های فعال */
+  /** Median latency of last successful test among active configs */
   median_latency: number | null
-  /** صدک ۹۵ latency آخرین تست موفق کانفیگ‌های فعال */
+  /** P95 latency of last successful test among active configs */
   p95_latency: number | null
 
   last_check_at: number | null
@@ -48,7 +48,7 @@ export interface Config {
   last_seen_at: number
 }
 
-/** کانفیگ به‌همراه نتیجه‌ی آخرین بررسی */
+/** Config with last check result */
 export interface ConfigWithStatus extends Config {
   server_name: string
   last_ok: 0 | 1 | null
@@ -92,7 +92,7 @@ export interface DailyStat {
   downtime_sec: number
 }
 
-/** نتیجه‌ی خام یک تست */
+/** Raw test result */
 export interface TestResult {
   fingerprint: string
   ok: boolean
@@ -105,7 +105,7 @@ export interface TestResult {
 
 export type ErrorKind = 'timeout' | 'refused' | 'tls' | 'protocol' | 'http' | 'dns' | 'unknown'
 
-/** نتیجه‌ی استخراج یک کانفیگ از لینک ساب */
+/** Parsed config result from a subscription link */
 export interface ParsedConfig {
   fingerprint: string
   uri: string
@@ -113,7 +113,7 @@ export interface ParsedConfig {
   address: string | null
   port: number | null
   label: string | null
-  /** outbound آماده برای Xray */
+  /** Ready-to-use outbound for Xray */
   outbound: XrayOutbound
 }
 
@@ -125,7 +125,7 @@ export interface XrayOutbound {
 }
 
 export interface TimelineCell {
-  /** شروع بازه (Unix ms) */
+  /** Bucket start (Unix ms) */
   t: number
   total: number
   up: number

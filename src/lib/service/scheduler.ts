@@ -1,6 +1,6 @@
 /**
- * مدیریت زمان‌بند بررسی‌های دوره‌ای (Background Scheduler).
- * این سرویس مسئول اجرای دوره‌ای runCheckCycle است.
+ * Periodic check scheduler (Background Scheduler).
+ * This service is responsible for running runCheckCycle on a schedule.
  */
 import { runCheckCycle } from '@/lib/service/check'
 import { getDb } from '@/lib/db'

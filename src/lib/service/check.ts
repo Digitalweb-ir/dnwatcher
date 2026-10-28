@@ -1,8 +1,8 @@
 /**
- * لایه‌ی سرویس بررسی: از یک سرور تا ثبت نتیجه در دیتابیس.
+ * Check service layer: from a server to recording results in the database.
  *
- * این ماژول تنها جایی است که «دریافت ساب → تست → ثبت» را هماهنگ می‌کند؛
- * هم زمان‌بند پس‌زمینه و هم دکمه‌ی «چک فوری» در UI از همین توابع استفاده می‌کنند.
+ * This module is the only place that coordinates "fetch subscription -> test -> record";
+ * both the background scheduler and the "check now" button in the UI use these functions.
  */
 import { getDb } from '@/lib/db'
 import {
@@ -19,7 +19,7 @@ import { hasXray } from '@/lib/xray/binary'
 import { testConfigs, type ConfigTestResult } from '@/lib/xray/tester'
 import { emitConfigCheck, emitConfigStart, emitCycleState, emitServerStats, emitServerUpdate } from '@/lib/service/sse'
 
-/** وضعیت آخرین دور بررسی — برای نمایش در UI */
+/** Last check cycle state — for UI display */
 export interface CycleState {
   running: boolean
   startedAt: number | null
@@ -55,9 +55,9 @@ export interface ServerCheckResult {
 }
 
 /**
- * بررسی یک سرور: در صورت نیاز ابتدا ساب را تازه می‌کند، بعد کانفیگ‌ها را تست می‌کند.
- * نکته: تست‌ها عمداً سریالی اجرا می‌شوند چون همه‌ی دسته‌ها از یک بازه‌ی پورت مشترک
- * استفاده می‌کنند و اجرای هم‌زمان باعث تداخل پورت می‌شود.
+ * Check a single server: refresh subscription if needed, then test configs.
+ * Note: tests run serially because all batches share a port range and concurrent
+ * execution would cause port conflicts.
  */
 export async function checkServer(
   serverId: number,
@@ -167,15 +167,15 @@ export async function checkServer(
   }
 }
 
-/** آیا وقت تازه‌سازی ساب این سرور رسیده است؟ */
+/** Does this server need a subscription refresh? */
 function needsRefresh(server: Server, now: number, refreshSec: number): boolean {
   if (!server.last_fetch_at) return true
   return now - server.last_fetch_at >= refreshSec * 1000
 }
 
 /**
- * یک دور کامل بررسی روی سرورهای موعددار.
- * اگر `force` باشد، همه‌ی سرورهای فعال بررسی می‌شوند (صرف‌نظر از بازه).
+ * A full check cycle on due servers.
+ * If `force` is true, all enabled servers are checked regardless of interval.
  */
 export async function runCheckCycle(
   options: { force?: boolean } = {},

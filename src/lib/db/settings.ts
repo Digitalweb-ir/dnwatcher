@@ -1,33 +1,36 @@
 import type { DatabaseSync } from 'node:sqlite'
 
-/** تنظیمات پیش‌فرض سیستم — از جدول settings خوانده و نوشته می‌شوند */
+/** Default system settings — read from and written to the settings table */
 export const DEFAULT_SETTINGS = {
-  /** بازه‌ی پیش‌فرض بررسی هر سرور (ثانیه) */
+  /** Default check interval per server (seconds) */
   check_interval_sec: 300,
-  /** مهلت هر درخواست تست (میلی‌ثانیه) */
+  /** Request timeout for each test (milliseconds) */
   request_timeout_ms: 5000,
-  /** آدرس تست سلامت */
+  /** Health check endpoint URL */
   test_url: 'https://www.gstatic.com/generate_204',
-  /** چند شکست پیاپی = قطعی */
+  /** How many consecutive failures = outage */
   fail_threshold: 2,
-  /** ماندگاری داده‌ی خام checks (روز) */
+  /** Raw checks retention (days) */
   retention_days: 30,
-  /** ماندگاری آمار روزانه (روز) */
+  /** Daily stats retention (days) */
   daily_retention_days: 365,
-  /** شروع بازه‌ی پورت‌های SOCKS5 */
+  /** SOCKS5 port range base */
   port_base: 20000,
-  /** حداکثر کانفیگ در هر batch (بیش از این، به دسته‌های کوچک‌تر تقسیم می‌شود) */
+  /** Max configs per batch (excess split into smaller batches) */
   max_batch: 50,
-  /** فاصله‌ی تازه‌سازی لینک ساب (ثانیه) */
+  /** Subscription refresh interval (seconds) */
   sub_refresh_sec: 3600,
-  /** فاصله‌ی حلقه‌ی زمان‌بند (ثانیه) */
+  /** Scheduler tick interval (seconds) */
   scheduler_tick_sec: 15,
   /** Webhook URL to call when a config goes down (POST with address, port, etc.) */
   outage_webhook_url: '',
 } as const
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS
-export type Settings = { [K in SettingKey]: (typeof DEFAULT_SETTINGS)[K] }
+/** Resolved settings: numeric defaults stay numbers, everything else is a string */
+export type Settings = {
+  [K in SettingKey]: (typeof DEFAULT_SETTINGS)[K] extends number ? number : string
+}
 
 export function ensureDefaultSettings(db: DatabaseSync): void {
   const insert = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')

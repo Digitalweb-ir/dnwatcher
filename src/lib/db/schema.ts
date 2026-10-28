@@ -1,11 +1,11 @@
 import type { DatabaseSync } from 'node:sqlite'
 
 /**
- * مایگریشن‌ها به‌ترتیب اجرا می‌شوند و نسخه در `PRAGMA user_version` نگه داشته می‌شود.
- * برای تغییر اسکیما، هرگز مایگریشن قبلی را ویرایش نکن — یک مورد جدید اضافه کن.
+ * Migrations run in order and version is stored in `PRAGMA user_version`.
+ * To change schema, never edit a previous migration — add a new one.
  */
 const MIGRATIONS: string[] = [
-  /* ۱ — اسکیمای پایه */
+  /* 1 — Base schema */
   `
   CREATE TABLE servers (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,10 +92,10 @@ const MIGRATIONS: string[] = [
   );
   `,
 
-  /* ۲ — افزودن کشور به سرورها (نام سرور + کشور) */
+  /* 2 — Add country to servers (server name + country) */
   `ALTER TABLE servers ADD COLUMN country TEXT;`,
 
-  /* ۳ — تغییر fingerprint به unique composite (server_id, fingerprint) برای دیتابیس‌های موجود */
+  /* 3 — Change fingerprint to composite unique (server_id, fingerprint) for existing databases */
   `
   -- For existing databases with the old schema where fingerprint had a UNIQUE constraint
   -- SQLite creates an auto-index (sqlite_autoindex_configs_1) that cannot be dropped directly
@@ -142,7 +142,7 @@ const MIGRATIONS: string[] = [
   ALTER TABLE configs_new RENAME TO configs;
   `,
 
-  /* ۴ — اصلاح ارجاعات Foreign Key برای جداول checks و incidents بعد از بازسازی configs */
+  /* 4 — Fix FK references for checks and incidents after configs rebuild */
   `
   PRAGMA foreign_keys = OFF;
 
