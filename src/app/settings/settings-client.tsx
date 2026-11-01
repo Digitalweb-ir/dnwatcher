@@ -370,6 +370,135 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
         </Card>
       </div>
 
+      {/* تلگرام و اعلان‌ها */}
+      <Card className="card-glow border-border/70 bg-card/60 flex flex-col">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Bot className="size-5" />
+            </div>
+            <div>
+              <CardTitle>تلگرام و اعلان‌ها</CardTitle>
+              <CardDescription>تنظیمات بات تلگرام برای گزارش‌های قطعی</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex-1">
+          <form action={handleSaveSettings} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="telegram_enabled" className="text-xs flex items-center gap-2">
+                <span>فعال‌سازی اعلان‌های تلگرام</span>
+                {initialSettings.telegram_enabled === 1 ? (
+                  <ToggleRight className="size-4 text-green-500" />
+                ) : (
+                  <ToggleLeft className="size-4 text-muted-foreground" />
+                )}
+              </Label>
+              <Input
+                id="telegram_enabled"
+                name="telegram_enabled"
+                type="checkbox"
+                defaultChecked={initialSettings.telegram_enabled === 1}
+                className="sr-only"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="telegram_log_checks" className="text-xs flex items-center gap-2">
+                <span>ارسال هر بررسی به لاگ (حالت واژه‌به‌واژه)</span>
+                {initialSettings.telegram_log_checks === 1 ? (
+                  <ToggleRight className="size-4 text-green-500" />
+                ) : (
+                  <ToggleLeft className="size-4 text-muted-foreground" />
+                )}
+              </Label>
+              <Input
+                id="telegram_log_checks"
+                name="telegram_log_checks"
+                type="checkbox"
+                defaultChecked={initialSettings.telegram_log_checks === 1}
+                className="sr-only"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="telegram_bot_token" className="text-xs">توکن بات تلگرام</Label>
+              <Input
+                id="telegram_bot_token"
+                name="telegram_bot_token"
+                type="password"
+                placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                defaultValue={initialSettings.telegram_bot_token}
+                dir="ltr"
+                className="text-sm font-mono"
+                autoComplete="off"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="telegram_admin_ids" className="text-xs">آی‌دی ادمین‌ها (به جدا از کاما)</Label>
+              <div className="space-y-2">
+                <Input
+                  id="telegram_admin_ids"
+                  name="telegram_admin_ids"
+                  type="text"
+                  placeholder="123456789, 987654321"
+                  value={telegramAdminIds || initialSettings.telegram_admin_ids}
+                  onChange={(e) => handleTelegramAdminIdsChange(e.target.value)}
+                  dir="ltr"
+                  className="text-sm font-mono"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {(telegramAdminIds || initialSettings.telegram_admin_ids)
+                    .split(',')
+                    .map((id) => id.trim())
+                    .filter(Boolean)
+                    .map((id) => (
+                      <Badge key={id} variant="secondary" className="gap-1">
+                        {id}
+                        <button
+                          type="button"
+                          onClick={() => removeTelegramAdminId(id)}
+                          className="p-0 hover:text-destructive"
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                </div>
+                <p className="text-xs text-muted-foreground">آی‌دی عددی تلگرام ادمین‌ها را با کاما جدا کنید. برای دریافت آی‌دی: @userinfobot</p>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="telegram_proxy_address" className="text-xs">آدرس پروکسی SOCKS5 (برای ایران)</Label>
+              <Input
+                id="telegram_proxy_address"
+                name="telegram_proxy_address"
+                type="text"
+                placeholder="127.0.0.1"
+                defaultValue={initialSettings.telegram_proxy_address}
+                dir="ltr"
+                className="text-sm"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="telegram_proxy_port" className="text-xs">پورت پروکسی SOCKS5</Label>
+              <Input
+                id="telegram_proxy_port"
+                name="telegram_proxy_port"
+                type="number"
+                min="1"
+                max="65535"
+                defaultValue={initialSettings.telegram_proxy_port}
+                dir="ltr"
+                className="text-sm"
+              />
+            </div>
+            <Button type="submit" className="w-full mt-2">
+              <Save className="me-2 size-4" />
+              ذخیره تنظیمات تلگرام
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
       {/* امنیت و رمزنگاری */}
       <Card className="card-glow border-border/70 bg-card/60 mt-6">
         <CardHeader>

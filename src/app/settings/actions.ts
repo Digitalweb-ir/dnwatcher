@@ -10,10 +10,21 @@ import { revalidatePath } from 'next/cache'
 export async function saveSettingsAction(formData: FormData) {
   const db = getDb()
   const patch: Partial<Record<SettingKey, string | number>> = {}
+
+  // Keys that are boolean flags stored as 0/1 in DB but sent as "on"/undefined from checkboxes
+  const booleanKeys: SettingKey[] = [
+    'telegram_enabled',
+    'telegram_log_checks',
+  ]
+
   for (const key of Object.keys(DEFAULT_SETTINGS) as SettingKey[]) {
+    const defaultValue = DEFAULT_SETTINGS[key]
     const value = formData.get(key)
-    if (value !== null) {
-      const defaultValue = DEFAULT_SETTINGS[key]
+
+    if (booleanKeys.includes(key)) {
+      // Checkbox: "on" when checked, absent when unchecked
+      patch[key] = value === 'on' ? 1 : 0
+    } else if (value !== null) {
       patch[key] = typeof defaultValue === 'number' ? Number(value) : String(value)
     }
   }

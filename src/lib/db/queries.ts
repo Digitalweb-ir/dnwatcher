@@ -2,6 +2,7 @@ import type { DatabaseSync, SQLOutputValue } from 'node:sqlite'
 
 import { getDb, transaction } from './index'
 import { getSettings } from './settings'
+import { sendLog } from '@/lib/telegram/client'
 import type {
   Check,
   Config,
@@ -398,6 +399,14 @@ export function recordChecks(
 
           // Notify the user-configured webhook on the DOWN transition (fire and forget)
           if (outageWebhookUrl) {
+            // Log before sending webhook
+            void sendLog(
+              `📤 <b>وب‌هوک config_down در حال ارسال</b>\n` +
+                `کانفیگ ${configId} — ${config.address ?? '?'}:${config.port ?? '?'}\n` +
+                `URL: ${outageWebhookUrl}\n` +
+                `Paylaod: config_down, streak=${failStreak}/${failThreshold}, error=${result.error ?? 'none'}`,
+            )
+
             fetch(outageWebhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -412,9 +421,19 @@ export function recordChecks(
                 error: result.error,
                 timestamp: now,
               }),
-            }).catch((err) =>
-              console.error(`[recordChecks] Outage webhook failed for config ${configId}: ${err.message}`),
-            )
+            })
+              .then(() =>
+                void sendLog(
+                  `✅ <b>وب‌هوک config_down ارسال شد</b> — کانفیگ ${configId} (${config.address ?? '?'}:${config.port ?? '?'})`,
+                ),
+              )
+              .catch((err) => {
+                console.error(`[recordChecks] Outage webhook failed for config ${configId}: ${err.message}`)
+                void sendLog(
+                  `❌ <b>وب‌هوک config_down ناموفق</b> — کانفیگ ${configId} (${config.address ?? '?'}:${config.port ?? '?'})\n` +
+                    `خطا: ${err.message}`,
+                )
+              })
           }
 
           // Trigger Webhook for Down Event
@@ -436,6 +455,44 @@ export function recordChecks(
         if (open) {
           closeIncident.run(now, open.id)
           closed.push(configId)
+
+          // Notify the user-configured webhook on the UP transition (fire and forget)
+          if (outageWebhookUrl) {
+            // Log before sending webhook
+            void sendLog(
+              `📤 <b>وب‌هوک config_up در حال ارسال</b>\n` +
+                `کانفیگ ${configId} — ${config.address ?? '?'}:${config.port ?? '?'}\n` +
+                `URL: ${outageWebhookUrl}`,
+            )
+
+            fetch(outageWebhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event: 'config_up',
+                configId,
+                serverId: config.server_id,
+                address: config.address,
+                port: config.port,
+                failStreak: 0,
+                threshold: failThreshold,
+                error: null,
+                timestamp: now,
+              }),
+            })
+              .then(() =>
+                void sendLog(
+                  `✅ <b>وب‌هوک config_up ارسال شد</b> — کانفیگ ${configId} (${config.address ?? '?'}:${config.port ?? '?'})`,
+                ),
+              )
+              .catch((err) => {
+                console.error(`[recordChecks] Recovery webhook failed for config ${configId}: ${err.message}`)
+                void sendLog(
+                  `❌ <b>وب‌هوک config_up ناموفق</b> — کانفیگ ${configId} (${config.address ?? '?'}:${config.port ?? '?'})\n` +
+                    `خطا: ${err.message}`,
+                )
+              })
+          }
         }
       }
     } catch (e) {

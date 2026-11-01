@@ -18,6 +18,7 @@ import type { Server, TestResult } from '@/lib/types'
 import { hasXray } from '@/lib/xray/binary'
 import { testConfigs, type ConfigTestResult } from '@/lib/xray/tester'
 import { emitConfigCheck, emitConfigStart, emitCycleState, emitServerStats, emitServerUpdate } from '@/lib/service/sse'
+import { isTelegramEnabled, isVerboseCheckLogEnabled, sendLog } from '@/lib/telegram/client'
 
 /** Last check cycle state — for UI display */
 export interface CycleState {
@@ -122,6 +123,20 @@ export async function checkServer(
     const checkResults = results.map((item: ConfigTestResult) => ({ configId: item.configId, result: item.result }))
 
     recordChecks(checkResults, settings.fail_threshold, db)
+
+    // Verbose mode: log every check result to Telegram (not only outages)
+    if (isTelegramEnabled() && isVerboseCheckLogEnabled()) {
+      const lines = results.map((item: ConfigTestResult) => {
+        const cfg = configs.find((c) => c.id === item.configId)
+        const mark = item.result.ok ? '✅' : '❌'
+        const detail = item.result.ok
+          ? `${item.result.latency_ms ?? '?'}ms`
+          : (item.result.error ?? 'fail')
+        return `${mark} ${cfg?.address ?? '?'}:${cfg?.port ?? '?'} — ${detail}`
+      })
+      const date = new Date().toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })
+      void sendLog(`🔎 <b>نتیجه بررسی</b> (سرور ${serverId}) — ${date}\n${lines.join('\n')}`)
+    }
 
     for (const item of results) {
       emitConfigCheck(serverId, item.configId, {

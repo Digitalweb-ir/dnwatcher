@@ -6,7 +6,8 @@ import { isAuthedRequest } from '@/lib/auth/guard'
 import type { Incident } from '@/lib/types'
 import { resolveHostToIps } from '@/lib/net/dns'
 import { findSshServerByIp, execSshCommand } from '@/lib/net/ssh'
-import { sendToAdmins, formatOutageLog, isTelegramEnabled } from '@/lib/telegram/client'
+import { sendOutageLog, isTelegramEnabled } from '@/lib/telegram/bot'
+import { sendLog } from '@/lib/telegram/client'
 
 /**
  * Webhook receiver for outage notifications.
@@ -72,11 +73,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Log the webhook receipt for debugging/auditing
     console.log(`[Outage Webhook] Received: ${event} for config ${configId} (${address}:${port})`)
 
+    // Trace the whole pipeline in Telegram when logging is enabled
+    const log = isTelegramEnabled()
+      ? (text: string) => sendLog(text)
+      : async () => {}
+
     // Switch on event type
     if (event === 'config_down') {
+      await log(
+        `📥 <b>وب‌هوک config_down دریافت شد</b>\n` +
+          `کانفیگ ${configId} — ${address ?? '?'}:${port ?? '?'}\n` +
+          `شکست پیاپی: ${failStreak}/${threshold} — خطا: ${error ?? 'نامشخص'}`,
+      )
       // Send Telegram notification for config down
       if (isTelegramEnabled()) {
-        const logText = formatOutageLog({
+        await sendOutageLog({
           event: 'config_down',
           configId,
           serverId,
@@ -84,7 +95,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           port,
           timestamp,
         })
-        await sendToAdmins(logText)
       }
 
       // Handle config_down event: attempt SSH recovery
@@ -99,11 +109,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const ips = await resolveHostToIps(address)
       if (ips.length === 0) {
         console.error(`[Outage Webhook] Failed to resolve address: ${address}`)
+        await log(`❌ <b>حل DNS ناموفق</b> — ${address} به IP تبدیل نشد، ریکاوری متوقف شد`)
         return NextResponse.json(
           { success: false, error: `Failed to resolve address: ${address}` },
           { status: 500 },
         )
       }
+
+      await log(`🔍 <b>DNS حل شد</b> — ${address} → ${ips.join(', ')}`)
 
       // Try each resolved IP to find matching SSH server
       let sshResult: { stdout: string; stderr: string; code: number } | null = null
@@ -124,11 +137,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
           try {
             console.log(`[Outage Webhook] Executing SSH command on ${sshServer.name}: ${recoveryCommand}`)
+            await log(`🔐 <b>اتصال SSH</b> — ${sshServer.name} (${sshServer.ip})\nدستور: <code>${recoveryCommand}</code>`)
             sshResult = await execSshCommand(sshServer, recoveryCommand)
             console.log(`[Outage Webhook] SSH command exited with code ${sshResult.code}`)
             break // Success - stop trying other IPs
           } catch (sshError) {
             console.error(`[Outage Webhook] SSH command failed on ${sshServer.name} (${ip}):`, sshError)
+            await log(`❌ <b>اتصال SSH ناموفق</b> — ${sshServer.name} (${ip})\n${sshError instanceof Error ? sshError.message : String(sshError)}`)
             // Try next IP
             continue
           }
@@ -136,9 +151,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       if (!matchedSshServer) {
+        await log(`⚠️ <b>سرور SSH پیدا نشد</b> — هیچ IPای از ${address} در جدول SSH نیست`)
         // Send Telegram notification for failure
         if (isTelegramEnabled()) {
-          const logText = formatOutageLog({
+          await sendOutageLog({
             event: 'ssh_recovery',
             configId,
             serverId,
@@ -149,7 +165,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             result: null,
             timestamp,
           })
-          await sendToAdmins(logText)
         }
 
         return NextResponse.json(
@@ -160,7 +175,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       // Send Telegram notification for SSH recovery attempt
       if (isTelegramEnabled()) {
-        const logText = formatOutageLog({
+        await sendOutageLog({
           event: 'ssh_recovery',
           configId,
           serverId,
@@ -172,7 +187,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           result: sshResult,
           timestamp,
         })
-        await sendToAdmins(logText)
       }
 
       return NextResponse.json({
@@ -197,6 +211,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // For other events (future: config_up, etc.), just acknowledge
+    if (event === 'config_up') {
+      await log(
+        `📥 <b>وب‌هوک config_up دریافت شد</b>\n` +
+          `کانفیگ ${configId} — ${address ?? '?'}:${port ?? '?'}`,
+      )
+      // Send Telegram notification for config up (recovery)
+      if (isTelegramEnabled()) {
+        await sendOutageLog({
+          event: 'config_up',
+          configId,
+          serverId,
+          address,
+          port,
+          timestamp,
+        })
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: `Outage webhook received: ${event}`,

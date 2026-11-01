@@ -36,6 +36,8 @@ export const DEFAULT_SETTINGS = {
   telegram_proxy_port: 10808,
   /** Enable/disable Telegram notifications */
   telegram_enabled: 0,
+  /** Send a Telegram log for every single check result, not only outages (0/1) */
+  telegram_log_checks: 0,
 } as const
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS

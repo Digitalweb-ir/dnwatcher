@@ -1,4 +1,4 @@
-import { SocksProxyAgent } from 'socks-proxy-agent'
+import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import { getSettings } from '@/lib/db/settings'
 import { getDb } from '@/lib/db'
 
@@ -22,7 +22,7 @@ export interface TelegramResponse {
 }
 
 /** Get bot token from settings or env */
-function getBotToken(): string | null {
+export function getBotToken(): string | null {
   const db = getDb()
   const settings = getSettings(db)
   return settings.telegram_bot_token || process.env.TELEGRAM_BOT_TOKEN || null
@@ -48,31 +48,58 @@ export function isTelegramEnabled(): boolean {
   return settings.telegram_enabled === 1 && !!getBotToken()
 }
 
-/** Get proxy configuration */
-function getProxyConfig(): { address: string; port: number } | null {
+/** Check if every single check result should be logged to Telegram */
+export function isVerboseCheckLogEnabled(): boolean {
   const db = getDb()
   const settings = getSettings(db)
+  return settings.telegram_log_checks === 1
+}
 
-  // If explicitly disabled (empty address), return null
-  if (!settings.telegram_proxy_address) return null
-
-  return {
-    address: settings.telegram_proxy_address,
-    port: settings.telegram_proxy_port,
+/**
+ * Send a free-form log line to all admins.
+ * Used for pipeline tracing (webhook fired, DNS resolved, SSH connecting, ...).
+ * Never throws — a logging failure must not break the recovery flow.
+ */
+export async function sendLog(text: string): Promise<void> {
+  if (!isTelegramEnabled()) return
+  try {
+    await sendToAdmins(text)
+  } catch (error) {
+    console.error('[Telegram] sendLog failed:', error)
   }
 }
 
-/** Build fetch options with proxy if configured */
-function buildFetchOptions(body: string): RequestInit {
-  const proxy = getProxyConfig()
-  const agent = proxy ? new SocksProxyAgent(`socks5://${proxy.address}:${proxy.port}`) : undefined
+/** SOCKS5 proxy dispatcher for Telegram traffic, or null for a direct connection */
+function getProxyDispatcher(): ProxyAgent | null {
+  const db = getDb()
+  const settings = getSettings(db)
 
-  return {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-    // @ts-expect-error - agent is a valid option for Node.js fetch
-    agent,
+  // Empty address means "no proxy" — connect directly
+  if (!settings.telegram_proxy_address) return null
+
+  return new ProxyAgent(`socks5://${settings.telegram_proxy_address}:${settings.telegram_proxy_port}`)
+}
+
+/** Call a Telegram Bot API method through the configured proxy */
+export async function callTelegramApi(method: string, body: unknown): Promise<TelegramResponse> {
+  const token = getBotToken()
+  if (!token) {
+    return { ok: false, error_code: 0, description: 'Bot token not configured' }
+  }
+
+  const dispatcher = getProxyDispatcher()
+
+  try {
+    const response = await undiciFetch(`https://api.telegram.org/bot${token}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      ...(dispatcher ? { dispatcher } : {}),
+    })
+    return (await response.json()) as TelegramResponse
+  } catch (error) {
+    console.error(`[Telegram] ${method} failed:`, error)
+    return { ok: false, error_code: 0, description: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -80,21 +107,7 @@ function buildFetchOptions(body: string): RequestInit {
  * Send a message to a single chat ID
  */
 export async function sendTelegramMessage(message: TelegramMessage): Promise<TelegramResponse> {
-  const token = getBotToken()
-  if (!token) {
-    return { ok: false, error_code: 0, description: 'Bot token not configured' }
-  }
-
-  const url = `https://api.telegram.org/bot${token}/sendMessage`
-  const options = buildFetchOptions(JSON.stringify(message))
-
-  try {
-    const response = await fetch(url, options)
-    return (await response.json()) as TelegramResponse
-  } catch (error) {
-    console.error('[Telegram] Send failed:', error)
-    return { ok: false, error_code: 0, description: error instanceof Error ? error.message : String(error) }
-  }
+  return callTelegramApi('sendMessage', message)
 }
 
 /**
