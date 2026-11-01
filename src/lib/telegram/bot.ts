@@ -70,7 +70,9 @@ export async function processUpdate(update: {
   message?: { chat: { id: number }; from: { id: number }; text?: string; message_id: number }
   callback_query?: { message: { chat: { id: number } }; from: { id: number }; data: string; id: string }
 }): Promise<void> {
-  if (!isTelegramEnabled()) return
+  // A bot token is required to reply; the telegram_enabled flag only gates
+  // outbound log notifications, not incoming command handling.
+  if (!getBotToken()) return
 
   const adminIds = getAdminIds()
   const isAdmin = (userId: number) => adminIds.includes(userId)
@@ -188,90 +190,25 @@ async function sendToAdmins(text: string): Promise<void> {
   }
 }
 
-/** Register built-in commands (extensible — add more in separate files) */
+/** Register built-in commands. The bot is log-only for now; the registry
+ * stays so more commands can be added later without touching the core. */
 export function registerBuiltinCommands(): void {
-  // /start command
+  // /start — confirms the chat is wired up for Network Watcher logs
   botRegistry.registerCommand({
     command: '/start',
-    description: 'Welcome message and system status',
+    description: 'Confirm log delivery is set up',
     adminOnly: false,
     handler: async (ctx) => {
-      const db = getDb()
-      const settings = getSettings(db)
+      const settings = getSettings(getDb())
+      const loggingOn = settings.telegram_enabled === 1
 
-      let text = `🤖 <b>Network Watcher</b>\n\n`
-      text += `✅ <b>Bot connected successfully</b>\n\n`
-      text += `📋 <b>System Status:</b>\n`
-      text += `• Alerts: ${settings.telegram_enabled === 1 ? '✅ Enabled' : '❌ Disabled'}\n`
-      text += `• Proxy: ${settings.telegram_proxy_address}:${settings.telegram_proxy_port}\n`
-      text += `• Recovery: <code>${settings.ssh_recovery_command || 'backpack -restart-all'}</code>\n`
-      text += `• Threshold: ${settings.fail_threshold} failures\n\n`
+      const text =
+        '📡 <b>Network Watcher</b>\n\n' +
+        'این بات برای دریافت لاگ سیستم Network Watcher تنظیم شده است.\n\n' +
+        '• ارسال لاگ: ' + (loggingOn ? '✅ فعال' : '❌ غیرفعال (در تنظیمات روشن کنید)') + '\n' +
+        '• لاگ هر بررسی: ' + (settings.telegram_log_checks === 1 ? '✅ فعال' : '❌ فقط رخدادهای قطعی') + '\n\n' +
+        'گزارش قطعی، ریکاوری SSH و نتیجهٔ آن در همین گفتگو ارسال می‌شود.'
 
-      if (ctx.isAdmin) {
-        text += `👑 <b>Admin access granted</b>\n`
-        text += `Use <code>/help</code> to see available commands.`
-      } else {
-        text += `ℹ️ You'll receive outage/recovery notifications here.`
-      }
-
-      await sendTelegramMessage({
-        chat_id: ctx.chatId,
-        text,
-        parse_mode: 'HTML',
-      })
-    },
-  })
-
-  // /help command
-  botRegistry.registerCommand({
-    command: '/help',
-    description: 'Show help message',
-    adminOnly: false,
-    handler: async (ctx) => {
-      const cmds = botRegistry.getAllCommands().filter((c) => !c.adminOnly || ctx.isAdmin)
-      let text = `📖 <b>Available Commands</b>\n\n`
-      for (const cmd of cmds) {
-        text += `• <code>${cmd.command}</code> — ${cmd.description}\n`
-      }
-      await sendTelegramMessage({
-        chat_id: ctx.chatId,
-        text,
-        parse_mode: 'HTML',
-      })
-    },
-  })
-
-  // /status command (admin only)
-  botRegistry.registerCommand({
-    command: '/status',
-    description: 'System status: servers, configs, recent incidents',
-    adminOnly: true,
-    handler: async (ctx) => {
-      await sendStatusMessage(ctx.chatId)
-    },
-  })
-
-  // /admins command (admin only)
-  botRegistry.registerCommand({
-    command: '/admins',
-    description: 'List configured admin IDs',
-    adminOnly: true,
-    handler: async (ctx) => {
-      const db = getDb()
-      const settings = getSettings(db)
-      const adminIds = settings.telegram_admin_ids
-        ?.split(',')
-        .map((s) => s.trim())
-        .filter(Boolean) || []
-
-      let text = `👥 <b>Admin List</b> (${adminIds.length})\n\n`
-      if (adminIds.length === 0) {
-        text += `No admins configured. Add in Settings → Telegram.`
-      } else {
-        for (const id of adminIds) {
-          text += `• <code>${id}</code>\n`
-        }
-      }
       await sendTelegramMessage({
         chat_id: ctx.chatId,
         text,
@@ -310,30 +247,30 @@ async function sendStatusMessage(chatId: number): Promise<void> {
       LIMIT 10
     `).all(since) as any[]
 
-    let text = `📊 <b>System Status (24h)</b>\n\n`
+    let text = '📊 <b>System Status (24h)</b>\n\n'
 
     if (servers.length === 0) {
-      text += `No active servers.`
+      text += 'No active servers.'
     } else {
       for (const s of servers) {
         const emoji = s.down_count > 0 ? '🔴' : (s.up_count > 0 ? '🟢' : '⚪')
-        text += `${emoji} <b>${s.name}</b> (${s.country || 'N/A'})\n`
-        text += `   Configs: ${s.config_count} | ✅ ${s.up_count} | 🔴 ${s.down_count} | ⚪ ${s.idle_count}\n`
+        text += emoji + ' <b>' + s.name + '</b> (' + (s.country || 'N/A') + ')\n'
+        text += '   Configs: ' + s.config_count + ' | ✅ ' + s.up_count + ' | 🔴 ' + s.down_count + ' | ⚪ ' + s.idle_count + '\n'
         if (s.last_check_at) {
           const t = new Date(s.last_check_at).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })
-          text += `   Last check: ${t}\n`
+          text += '   Last check: ' + t + '\n'
         }
-        text += `\n`
+        text += '\n'
       }
     }
 
     if (incidents.length > 0) {
-      text += `⚠️ <b>Recent Incidents:</b>\n`
+      text += '⚠️ <b>Recent Incidents:</b>\n'
       for (const inc of incidents) {
         const status = inc.ended_at ? '✅ Resolved' : '🔴 Ongoing'
         const st = new Date(inc.started_at).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })
-        text += `• ${inc.server_name} — ${inc.address}:${inc.port}\n`
-        text += `  ${st} | ${status} | ${inc.last_error || 'N/A'}\n`
+        text += '• ' + inc.server_name + ' — ' + inc.address + ':' + inc.port + '\n'
+        text += '  ' + st + ' | ' + status + ' | ' + (inc.last_error || 'N/A') + '\n'
       }
     }
 

@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { BellRing, Clock, Database, KeyRound, Save, Server, Shield, AlertCircle, Bot, Send, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { BellRing, Clock, Database, KeyRound, Save, Server, Shield, AlertCircle, Bot, Send, Plus, Trash2 } from 'lucide-react'
 
 import { AppShell } from '@/components/app-shell'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -385,39 +386,25 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
         </CardHeader>
         <CardContent className="flex-1">
           <form action={handleSaveSettings} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="telegram_enabled" className="text-xs flex items-center gap-2">
-                <span>فعال‌سازی اعلان‌های تلگرام</span>
-                {initialSettings.telegram_enabled === 1 ? (
-                  <ToggleRight className="size-4 text-green-500" />
-                ) : (
-                  <ToggleLeft className="size-4 text-muted-foreground" />
-                )}
-              </Label>
-              <Input
+            <div className="flex items-center gap-3">
+              <Checkbox
                 id="telegram_enabled"
                 name="telegram_enabled"
-                type="checkbox"
                 defaultChecked={initialSettings.telegram_enabled === 1}
-                className="sr-only"
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="telegram_log_checks" className="text-xs flex items-center gap-2">
-                <span>ارسال هر بررسی به لاگ (حالت واژه‌به‌واژه)</span>
-                {initialSettings.telegram_log_checks === 1 ? (
-                  <ToggleRight className="size-4 text-green-500" />
-                ) : (
-                  <ToggleLeft className="size-4 text-muted-foreground" />
-                )}
+              <Label htmlFor="telegram_enabled" className="text-xs cursor-pointer">
+                فعال‌سازی اعلان‌های تلگرام
               </Label>
-              <Input
+            </div>
+            <div className="flex items-center gap-3">
+              <Checkbox
                 id="telegram_log_checks"
                 name="telegram_log_checks"
-                type="checkbox"
                 defaultChecked={initialSettings.telegram_log_checks === 1}
-                className="sr-only"
               />
+              <Label htmlFor="telegram_log_checks" className="text-xs cursor-pointer">
+                ارسال هر بررسی به لاگ (حالت واژه‌به‌واژه)
+              </Label>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="telegram_bot_token" className="text-xs">توکن بات تلگرام</Label>
