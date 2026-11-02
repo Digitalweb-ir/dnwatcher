@@ -92,7 +92,7 @@ function DashboardContent() {
     },
     {
       label: 'آپتایم ۲۴ ساعت',
-      value: faPercent(summary.uptime_24h),
+      value: summary.uptime_24h !== null ? faPercent(summary.uptime_24h) : '—',
       icon: TrendingUp,
       tone: summary.uptime_24h !== null && summary.uptime_24h >= 99 ? 'up' : 'warn',
       hint: 'درصد موفقیت بررسی‌ها در ۲۴ ساعت گذشته',

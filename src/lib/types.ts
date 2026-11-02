@@ -23,6 +23,7 @@ export interface ServerWithStats extends Server {
   config_count: number
   up_count: number
   down_count: number
+  idle_count: number
 
   /** Average latency of last successful test among active configs */
   avg_latency: number | null

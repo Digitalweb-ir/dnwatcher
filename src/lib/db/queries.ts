@@ -52,6 +52,7 @@ const SERVER_WITH_STATS_SQL = `
     COALESCE(COUNT(e.id), 0)                                        AS config_count,
     COALESCE(SUM(CASE WHEN e.status = 'up'   THEN 1 ELSE 0 END), 0) AS up_count,
     COALESCE(SUM(CASE WHEN e.status = 'down' THEN 1 ELSE 0 END), 0) AS down_count,
+    COALESCE(SUM(CASE WHEN e.status = 'idle' THEN 1 ELSE 0 END), 0) AS idle_count,
     ls.avg_latency                                                  AS avg_latency,
     ls.median_latency                                               AS median_latency,
     ls.p95_latency                                                  AS p95_latency,
