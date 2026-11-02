@@ -7,13 +7,15 @@ import { AppShell } from '@/components/app-shell'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { listServers } from '@/lib/db/queries'
+import { isAuthed } from '@/lib/auth/guard'
 
 export const metadata = { title: 'سرورها' }
 export const dynamic = 'force-dynamic'
 
-function ServersContent() {
+async function ServersContent() {
   const servers = listServers()
-  console.log('[ServersPage] Loaded servers from DB:', servers)
+  const authenticated = await isAuthed()
+  console.log('[ServersPage] Loaded servers from DB:', servers, '| Authenticated:', authenticated)
   return (
     <AppShell
       title="سرورها"
@@ -21,7 +23,7 @@ function ServersContent() {
       actions={
         <>
           <Badge variant="secondary">مرحله ۸</Badge>
-          <ServerForm />
+          {authenticated && <ServerForm />}
         </>
       }
     >

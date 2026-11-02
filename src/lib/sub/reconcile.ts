@@ -1,4 +1,3 @@
-import { tryDecryptSecret } from '@/lib/crypto/secret'
 import { getDb } from '@/lib/db'
 import { reconcileConfigs, updateServer, type ReconcileResult } from '@/lib/db/queries'
 import type { Server } from '@/lib/types'
@@ -37,12 +36,7 @@ export async function reconcileServer(
     return { added: 0, reactivated: 0, disabled: 0, unchanged: 0, parsed: 0, error: 'سرور پیدا نشد.' }
   }
 
-  const subUrl = tryDecryptSecret(server.sub_url)
-  if (!subUrl) {
-    const error = 'رمزگشایی لینک ساب ناموفق بود (کلید رمزنگاری نامعتبر است).'
-    updateServer(serverId, { last_fetch_error: error })
-    return { added: 0, reactivated: 0, disabled: 0, unchanged: 0, parsed: 0, error }
-  }
+  const subUrl = server.sub_url
 
   let parsed
   try {

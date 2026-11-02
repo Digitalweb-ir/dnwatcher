@@ -10,7 +10,6 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { createServer, deleteServer, getServer, listServers, updateServer } from '@/lib/db/queries'
 import { getDb } from '@/lib/db'
-import { encryptSecret } from '@/lib/crypto/secret'
 import { reconcileServer } from '@/lib/sub/reconcile'
 import type { Server } from '@/lib/types'
 import { isAuthedRequest } from '@/lib/auth/guard'
@@ -47,13 +46,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const db = getDb()
-  const encrypted = encryptSecret(sub_url.trim())
 
   const id = createServer(
     {
       name: name.trim(),
       country: country?.trim() ?? null,
-      sub_url: encrypted,
+      sub_url: sub_url.trim(),
       check_interval_sec: check_interval_sec ?? 300,
       enabled: enabled ?? 1,
     },
@@ -89,10 +87,6 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(update as any)[key] = value
     }
-  }
-
-  if (update.sub_url) {
-    update.sub_url = encryptSecret(update.sub_url)
   }
 
   updateServer(id, update)

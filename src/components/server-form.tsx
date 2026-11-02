@@ -47,7 +47,7 @@ export function ServerForm({ server }: { server?: ServerWithStats }) {
     if (!open) return
     setName(server?.name ?? '')
     setCountry(server?.country ?? 'DE')
-    setSubUrl('')
+    setSubUrl(server?.sub_url ?? '')
     setIntervalSec(server?.check_interval_sec ?? 120)
     setEnabled((server?.enabled ?? 1) === 1)
   }, [open, server])
@@ -164,19 +164,19 @@ export function ServerForm({ server }: { server?: ServerWithStats }) {
 
           <div className="grid gap-2">
             <Label htmlFor="server-sub">
-              لینک ساب {editing && <span className="text-muted-foreground">(خالی = بدون تغییر)</span>}
+              لینک ساب
             </Label>
             <Input
               id="server-sub"
               value={subUrl}
               onChange={(e) => setSubUrl(e.target.value)}
-              placeholder={editing ? '••••••••••••' : 'https://example.com/sub?token=…'}
+              placeholder="https://example.com/sub?token=…"
               dir="ltr"
               autoComplete="off"
               spellCheck={false}
             />
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              لینک ساب با AES-256-GCM رمزنگاری می‌شود و هرگز در فهرست نمایش داده نمی‌شود.
+              لینک ساب برای دریافت کانفیگ‌ها استفاده می‌شود.
             </p>
           </div>
 
