@@ -1,21 +1,21 @@
 /**
- * Server-Sent Events برای به‌روزرسانی زنده داشبورد/تایم‌لاین.
+ * Server-Sent Events for live dashboard/timeline updates.
  *
  * GET /api/stream
  *
- * رویدادها:
- *   - cycle:state  → وقتی دور بررسی تمام می‌شود
- *   - config:check → نتیجه یک بررسی کانفیگ
- *   - heartbeat    → هر ۳۰ ثانیه برای نگه‌داشتن اتصال
+ * Events:
+ *   - cycle:state  → when a check cycle completes
+ *   - config:check → result of a single config check
+ *   - heartbeat    → every 30 seconds to keep connection alive
  *
- * کلاینت باید با EventSource متصل شود و رویدادها را پردازش کند.
+ * Client connects with EventSource and processes events.
  */
 import { NextRequest } from 'next/server'
 import { getCycleState } from '@/lib/service/check'
 import { addSubscriber, removeSubscriber } from '@/lib/service/sse'
 import { startScheduler } from '@/lib/service/scheduler'
 
-// SSE در محیط Node نیاز به اجرای طولانی دارد
+// SSE in Node requires long-running execution
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     start(controller) {
       addSubscriber(controller)
 
-      // فوراً وضعیت جاری را بفرست
+      // Immediately send current state
       controller.enqueue(`event: cycle:state\ndata: ${JSON.stringify(getCycleState())}\n\n`)
 
       heartbeat = setInterval(() => {
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest): Promise<Response> {
         }
       }, 30_000)
 
-      // وقتی کلاینت قطع شد، تمیزکاری کن
+      // Cleanup when client disconnects
       request.signal.addEventListener('abort', () => {
         if (heartbeat) clearInterval(heartbeat)
         removeSubscriber(controller)

@@ -5,7 +5,7 @@ import { checkAdminPassword } from '@/lib/auth/store'
 import { getDb } from '@/lib/db'
 
 const LoginSchema = z.object({
-  password: z.string().min(1, 'رمز عبور الزامی است'),
+  password: z.string().min(1, 'Password is required'),
 })
 
 export async function POST(request: Request) {
@@ -19,18 +19,18 @@ export async function POST(request: Request) {
 
     const db = getDb()
     if (!checkAdminPassword(db, result.data.password)) {
-      return NextResponse.json({ error: 'رمز عبور اشتباه است' }, { status: 401 })
+      return NextResponse.json({ error: 'Invalid password' }, { status: 401 })
     }
 
-    // ایجاد توکن حرفه‌ای
+    // Create professional session token
     const token = await createSessionToken({ userId: 'admin', role: 'admin' })
 
     const response = NextResponse.json({
       success: true,
-      message: 'با موفقیت وارد شدید'
+      message: 'Logged in successfully'
     })
 
-    // ست کردن کوکی امن
+    // Set secure cookie
     response.cookies.set({
       ...COOKIE_CONFIG,
       value: token,
@@ -39,6 +39,6 @@ export async function POST(request: Request) {
     return response
   } catch (error) {
     console.error('[Login API Error]:', error)
-    return NextResponse.json({ error: 'خطای داخلی سرور' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

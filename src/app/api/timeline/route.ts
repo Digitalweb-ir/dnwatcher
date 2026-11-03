@@ -1,5 +1,5 @@
 /**
- * API تایم‌لاین — داده‌ی مجمعی برای نوارهای وضعیت کانفیگ‌ها.
+ * Timeline API — aggregated data for config status bars.
  *
  * GET /api/timeline?window=24h|7d|30d|1y&configIds=1,2,3&serverId=4
  */
@@ -9,13 +9,13 @@ import { listConfigs, timelineCells, configStats } from '@/lib/db/queries'
 import type { TimelineCell } from '@/lib/types'
 
 const WINDOWS: Record<string, { bucketMs: number; durationMs: number }> = {
-  // هدف: حدوداً ~۲۴ ستون در هر کانفیگ تا اسکرول افقی کمتر شود
-  '1h': { bucketMs: 5 * 60 * 1000, durationMs: 1 * 3600 * 1000 }, // 12 ستون
-  '4h': { bucketMs: 10 * 60 * 1000, durationMs: 4 * 3600 * 1000 }, // 24 ستون
-  '24h': { bucketMs: 1 * 3600 * 1000, durationMs: 24 * 3600 * 1000 }, // 24 ستون
-  '7d': { bucketMs: 7 * 3600 * 1000, durationMs: 7 * 24 * 3600 * 1000 }, // ~24 ستون
-  '30d': { bucketMs: 30 * 3600 * 1000, durationMs: 30 * 24 * 3600 * 1000 }, // ~24 ستون
-  '1y': { bucketMs: 365 * 3600 * 1000, durationMs: 365 * 24 * 3600 * 1000 }, // ~24 ستون
+  // Target: ~24 columns per config to minimize horizontal scrolling
+  '1h': { bucketMs: 5 * 60 * 1000, durationMs: 1 * 3600 * 1000 }, // 12 columns
+  '4h': { bucketMs: 10 * 60 * 1000, durationMs: 4 * 3600 * 1000 }, // 24 columns
+  '24h': { bucketMs: 1 * 3600 * 1000, durationMs: 24 * 3600 * 1000 }, // 24 columns
+  '7d': { bucketMs: 7 * 3600 * 1000, durationMs: 7 * 24 * 3600 * 1000 }, // ~24 columns
+  '30d': { bucketMs: 30 * 3600 * 1000, durationMs: 30 * 24 * 3600 * 1000 }, // ~24 columns
+  '1y': { bucketMs: 365 * 3600 * 1000, durationMs: 365 * 24 * 3600 * 1000 }, // ~24 columns
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const since = now - window.durationMs
   const until = now
 
-  // همه‌ی کانفیگ‌ها (با غیرفعال‌ها) تا برچسب سطرها همیشه پیدا شود
+  // All configs (including disabled) so row labels are always available
   const allConfigs = listConfigs({ includeDisabled: true, serverId })
   const configById = new Map(allConfigs.map((config) => [config.id, config]))
 
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .map(Number)
       .filter((n) => Number.isFinite(n))
   } else {
-    // فقط کانفیگ‌های فعال نمایش داده می‌شوند
+    // Only enabled configs are displayed
     configIds = allConfigs.filter((config) => config.enabled === 1).map((config) => config.id)
   }
 
@@ -92,14 +92,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     })
   }
 
-  // مرتب‌سازی بر اساس سرور برای نمایش گروه‌بندی شده در فرانت‌اند
+  // Sort by server for grouped display in frontend
   rows.sort((a, b) => {
     const serverCompare = a.server_name.localeCompare(b.server_name)
     if (serverCompare !== 0) return serverCompare
     return (a.label ?? '').localeCompare(b.label ?? '')
   })
 
-  // اگر فقط یک کانفیگ درخواست شده، آمار تجمیعی آن را هم برگردان
+  // If only one config requested, also return its aggregate stats
   let stats = null
   if (configIds.length === 1) {
     stats = configStats(configIds[0], since)

@@ -54,65 +54,65 @@ function DashboardContent() {
     tone: StatTone
     hint: string
   }[] = [
-    {
-      label: 'کانفیگ‌های فعال',
-      value: toFa(summary.total_configs),
-      icon: Gauge,
-      tone: 'primary',
-      hint: 'کانفیگ‌هایی که enabled = 1 هستند',
-    },
-    {
-      label: 'سالم',
-      value: toFa(summary.up_count),
-      icon: CheckCircle2,
-      tone: 'up',
-      hint: 'آخرین دور بررسی — وضعیت up',
-    },
-    {
-      label: 'قطع',
-      value: toFa(summary.down_count),
-      icon: XCircle,
-      tone: 'down',
-      hint: 'نیازمند بررسی — وضعیت down',
-    },
-    {
-      label: 'بیکار',
-      value: toFa(summary.idle_count),
-      icon: Clock,
-      tone: 'idle',
-      hint: 'در انتظار بررسی مجدد (fail_streak < threshold)',
-    },
-    {
-      label: 'میانگین تأخیر',
-      value: faMs(summary.avg_latency),
-      unit: 'میلی‌ثانیه',
-      icon: Clock,
-      tone: 'warn',
-      hint: 'میانگین ۲۴ ساعت گذشته روی تست‌های موفق',
-    },
-    {
-      label: 'آپتایم ۲۴ ساعت',
-      value: summary.uptime_24h !== null ? faPercent(summary.uptime_24h) : '—',
-      icon: TrendingUp,
-      tone: summary.uptime_24h !== null && summary.uptime_24h >= 99 ? 'up' : 'warn',
-      hint: 'درصد موفقیت بررسی‌ها در ۲۴ ساعت گذشته',
-    },
-    {
-      label: 'سرورهای فعال',
-      value: toFa(enabledServers),
-      unit: `/ ${toFa(servers.length)}`,
-      icon: Server,
-      tone: 'primary',
-      hint: `${serversWithConfigs} سرور با کانفیگ | ${disabledServers} غیرفعال`,
-    },
-    {
-      label: 'رخدادهای ۲۴ ساعت',
-      value: toFa(summary.total_incidents_24h),
-      icon: AlertTriangle,
-      tone: summary.total_incidents_24h > 0 ? 'down' : 'up',
-      hint: 'تعداد کل رویدادهای قطعی در روز گذشته',
-    },
-  ]
+      {
+        label: 'کانفیگ‌های فعال',
+        value: toFa(summary.total_configs),
+        icon: Gauge,
+        tone: 'primary',
+        hint: 'کانفیگ‌هایی که enabled = 1 هستند',
+      },
+      {
+        label: 'سالم',
+        value: toFa(summary.up_count),
+        icon: CheckCircle2,
+        tone: 'up',
+        hint: 'آخرین دور بررسی — وضعیت up',
+      },
+      {
+        label: 'قطع',
+        value: toFa(summary.down_count),
+        icon: XCircle,
+        tone: 'down',
+        hint: 'نیازمند بررسی — وضعیت down',
+      },
+      {
+        label: 'بیکار',
+        value: toFa(summary.idle_count),
+        icon: Clock,
+        tone: 'idle',
+        hint: 'در انتظار بررسی مجدد (fail_streak < threshold)',
+      },
+      {
+        label: 'میانگین تأخیر',
+        value: faMs(summary.avg_latency),
+        unit: 'میلی‌ثانیه',
+        icon: Clock,
+        tone: 'warn',
+        hint: 'میانگین ۲۴ ساعت گذشته روی تست‌های موفق',
+      },
+      {
+        label: 'آپتایم ۲۴ ساعت',
+        value: summary.uptime_24h !== null ? faPercent(summary.uptime_24h) : '—',
+        icon: TrendingUp,
+        tone: summary.uptime_24h !== null && summary.uptime_24h >= 99 ? 'up' : 'warn',
+        hint: 'درصد موفقیت بررسی‌ها در ۲۴ ساعت گذشته',
+      },
+      {
+        label: 'سرورهای فعال',
+        value: toFa(enabledServers),
+        unit: `/ ${toFa(servers.length)}`,
+        icon: Server,
+        tone: 'primary',
+        hint: `${serversWithConfigs} سرور با کانفیگ | ${disabledServers} غیرفعال`,
+      },
+      {
+        label: 'رخدادهای ۲۴ ساعت',
+        value: toFa(summary.total_incidents_24h),
+        icon: AlertTriangle,
+        tone: summary.total_incidents_24h > 0 ? 'down' : 'up',
+        hint: 'تعداد کل رویدادهای قطعی در روز گذشته',
+      },
+    ]
 
   const STEPS = [
     {
@@ -222,7 +222,7 @@ function DashboardContent() {
                     <th className="text-start px-3 py-2 font-medium text-muted-foreground">نام</th>
                     <th className="text-center px-3 py-2 font-medium text-muted-foreground">کشور</th>
                     <th className="text-center px-3 py-2 font-medium text-muted-foreground">کانفیگ‌ها</th>
-                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">سالم / قطع / بیکار</th>
+                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">بیکار / قطع / سالم</th>
                     <th className="text-center px-3 py-2 font-medium text-muted-foreground">میانگین تأخیر</th>
                     <th className="text-center px-3 py-2 font-medium text-muted-foreground">آخرین بررسی</th>
                     <th className="text-center px-3 py-2 font-medium text-muted-foreground">وضعیت</th>
@@ -256,11 +256,10 @@ function DashboardContent() {
                       </td>
                       <td className="text-center px-3 py-2.5">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            server.enabled === 1
-                              ? 'bg-green-500/15 text-green-500'
-                              : 'bg-muted text-muted-foreground'
-                          }`}
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${server.enabled === 1
+                            ? 'bg-green-500/15 text-green-500'
+                            : 'bg-muted text-muted-foreground'
+                            }`}
                         >
                           {server.enabled === 1 ? 'فعال' : 'غیرفعال'}
                         </span>
@@ -296,9 +295,8 @@ function DashboardContent() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span
-                        className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-full ${
-                          inc.ended_at ? 'bg-up/15 text-up' : 'bg-down/15 text-down animate-pulse'
-                        }`}
+                        className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-full ${inc.ended_at ? 'bg-up/15 text-up' : 'bg-down/15 text-down animate-pulse'
+                          }`}
                       >
                         {inc.ended_at ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}
                       </span>
@@ -313,11 +311,10 @@ function DashboardContent() {
                       </div>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                        inc.ended_at
-                          ? 'bg-up/15 text-up'
-                          : 'bg-down/15 text-down animate-pulse'
-                      }`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${inc.ended_at
+                        ? 'bg-up/15 text-up'
+                        : 'bg-down/15 text-down animate-pulse'
+                        }`}
                     >
                       {inc.ended_at ? 'حل شده' : 'فعال'}
                     </span>

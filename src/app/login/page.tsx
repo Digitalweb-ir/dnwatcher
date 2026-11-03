@@ -1,8 +1,10 @@
 'use client'
 
-import { Suspense, useState, FormEvent } from 'react'
+import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { LockKeyhole, Loader2, Radio, ArrowRight } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -10,36 +12,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { loginSchema, type LoginFormData } from '@/lib/forms-schema'
 
 function LoginForm() {
   const searchParams = useSearchParams()
-  const [password, setPassword] = useState('')
   const [pending, setPending] = useState(false)
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!password.trim()) {
-      toast.error('رمز عبور را وارد کنید.')
-      return
-    }
+  const form = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { password: '' },
+    mode: 'onChange',
+  })
 
+  async function onSubmit(data: LoginFormData) {
     setPending(true)
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(data),
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        toast.error(data.error ?? 'رمز عبور نادرست است.')
+        const result = await response.json()
+        toast.error(result.error ?? 'رمز عبور نادرست است.')
         return
       }
 
       toast.success('خوش آمدید، در حال انتقال...')
 
-      // بارگذاری کامل تا کوکی تازه در همه‌ی درخواست‌های بعدی باشد
       const next = searchParams.get('next')
       window.location.href = next && next.startsWith('/') && !next.startsWith('//') ? next : '/'
     } catch {
@@ -73,7 +74,7 @@ function LoginForm() {
         </CardHeader>
 
         <CardContent className="px-8 pb-10">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5">
             <div className="grid gap-2">
               <Label htmlFor="password" className="text-xs font-medium text-muted-foreground">رمز عبور مدیر</Label>
               <div className="relative group">
@@ -81,14 +82,20 @@ function LoginForm() {
                   id="password"
                   type="password"
                   placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   disabled={pending}
                   className="pl-10 h-12 rounded-xl border-border/50 bg-background/50 transition-all focus:border-primary/50 focus:ring-primary/20"
+                  {...form.register('password')}
+                  aria-invalid={!!form.formState.errors.password}
+                  aria-describedby={form.formState.errors.password ? 'password-error' : undefined}
                 />
                 <LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               </div>
+              {form.formState.errors.password && (
+                <p id="password-error" className="text-xs text-destructive" role="alert">
+                  {form.formState.errors.password.message}
+                </p>
+              )}
             </div>
 
             <Button

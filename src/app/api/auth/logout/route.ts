@@ -5,7 +5,7 @@ export async function POST() {
   try {
     const response = NextResponse.json({ success: true })
 
-    // پاک کردن کوکی با ست کردن maxAge صفر
+    // Clear cookie by setting maxAge to zero
     response.cookies.set({
       ...COOKIE_CONFIG,
       value: '',
@@ -14,6 +14,6 @@ export async function POST() {
 
     return response
   } catch (error) {
-    return NextResponse.json({ error: 'خطا در خروج' }, { status: 500 })
+    return NextResponse.json({ error: 'Logout failed' }, { status: 500 })
   }
 }

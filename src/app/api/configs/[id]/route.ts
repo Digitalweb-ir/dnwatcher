@@ -1,5 +1,5 @@
 /**
- * API جزئیات کانفیگ + تاریخچه بررسی‌ها + تایم‌لاین.
+ * Config details API + check history + timeline.
  */
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -21,7 +21,7 @@ export async function GET(
 
   const config = getConfig(configId)
   if (!config) {
-    return NextResponse.json({ error: 'کانفیگ یافت نشد' }, { status: 404 })
+    return NextResponse.json({ error: 'Config not found' }, { status: 404 })
   }
 
   const latest = listLatestChecks()
@@ -30,7 +30,7 @@ export async function GET(
   const since24h = Date.now() - 24 * 3600 * 1000
   const stats = configStats(configId, since24h)
 
-  // تایم‌لاین ۲۴ ساعته با بکت ۵ دقیقه
+  // 24-hour timeline with 5-minute buckets
   const cellsMap = timelineCells({
     since: since24h,
     until: Date.now(),

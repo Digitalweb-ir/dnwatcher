@@ -6,28 +6,28 @@ import { changeAdminPassword } from '@/lib/auth/store'
 import { verifyPasswordSync } from '@/lib/auth/password'
 import { getAdminHash } from '@/lib/auth/store'
 import { revalidatePath } from 'next/cache'
+import { settingsSchema, formDataToPatch, SettingsFormData } from '@/lib/settings-schema'
 
 export async function saveSettingsAction(formData: FormData) {
-  const db = getDb()
-  const patch: Partial<Record<SettingKey, string | number>> = {}
-
-  // Keys that are boolean flags stored as 0/1 in DB but sent as "on"/undefined from checkboxes
-  const booleanKeys: SettingKey[] = [
-    'telegram_enabled',
-    'telegram_log_checks',
-  ]
-
-  for (const key of Object.keys(DEFAULT_SETTINGS) as SettingKey[]) {
-    const defaultValue = DEFAULT_SETTINGS[key]
-    const value = formData.get(key)
-
-    if (booleanKeys.includes(key)) {
-      // Checkbox: "on" when checked, absent when unchecked
-      patch[key] = value === 'on' ? 1 : 0
-    } else if (value !== null) {
-      patch[key] = typeof defaultValue === 'number' ? Number(value) : String(value)
+  // Convert FormData to plain object
+  const rawData: Record<string, unknown> = {}
+  for (const [key, value] of formData.entries()) {
+    if (key in DEFAULT_SETTINGS) {
+      rawData[key] = value
     }
   }
+
+  // Validate with Zod
+  const result = settingsSchema.safeParse(rawData)
+  if (!result.success) {
+    const firstError = result.error.issues[0]
+    return { success: false, message: `${firstError.path.join('.')}: ${firstError.message}` }
+  }
+
+  const validatedData = result.data as SettingsFormData
+  const patch = formDataToPatch(validatedData)
+
+  const db = getDb()
   updateSettings(db, patch)
   revalidatePath('/settings')
   return { success: true, message: 'تنظیمات ذخیره شد.' }

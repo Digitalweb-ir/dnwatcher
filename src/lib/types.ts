@@ -9,7 +9,7 @@ export interface Server {
   name: string
   /** Server country — ISO 2-letter code or Persian name (optional) */
   country: string | null
-  /** Encrypted subscription link (AES-256-GCM) */
+  /** Subscription link (plain text) */
   sub_url: string
   check_interval_sec: number
   enabled: 0 | 1

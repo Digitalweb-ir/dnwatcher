@@ -13,15 +13,15 @@ export interface ReconcileServerResult extends ReconcileResult {
 }
 
 /**
- * دریافت تازه‌ی لینک ساب یک سرور و همگام‌سازی کانفیگ‌هایش.
+ * Fetch and reconcile subscription link of a server.
  *
- * مراحل:
- *   ۱. رمزگشایی `sub_url` (AES-256-GCM)
- *   ۲. دریافت بدنه‌ی ساب با UA مخصوص v2rayNG و تلاش مجدد
- *   ۳. پارس بدنه → لیست کانفیگ + outbound
- *   ۴. همگام‌سازی با دیتابیس (افزودن/فعال‌سازی/غیرفعال‌سازی)
+ * Steps:
+ *   1. Read plain `sub_url`
+ *   2. Fetch subscription body with v2rayNG UA and retry
+ *   3. Parse body → list of configs + outbounds
+ *   4. Reconcile with database (add/activate/deactivate)
  *
- * خطاها در `servers.last_fetch_error` ثبت می‌شوند تا در UI نشان داده شوند.
+ * Errors are stored in `servers.last_fetch_error` for UI display.
  */
 export async function reconcileServer(
   serverId: number,

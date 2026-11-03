@@ -24,7 +24,7 @@ async function ConfigDetailContent({ params }: { params: Promise<{ id: string }>
     )
   }
 
-  // دریافت آمار اولیه برای بازه ۲۴ ساعت
+  // Fetch initial stats for the 24-hour window
   const stats = configStats(configId, Date.now() - 24 * 3600 * 1000)
 
   return <ConfigDetailClient config={{ ...config, stats }} />

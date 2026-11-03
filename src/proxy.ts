@@ -1,10 +1,10 @@
 /**
- * گیت احراز هویت — فقط برای بخش‌های حساس.
+ * Auth middleware — protects sensitive sections only.
  *
- * سلسله‌مراتب:
- *   1. فقط مسیرهای /ssh-servers و /api/ssh-servers محافظت می‌شوند.
- *   2. بقیه سایت (داشبورد، تایم‌لاین و ...) برای همه آزاد است.
- *   3. اگر کاربر برای بخش SSH وارد نشده باشد، به /login هدایت می‌شود.
+ * Hierarchy:
+ *   1. Only /ssh-servers and /api/ssh-servers routes are protected.
+ *   2. Rest of the site (dashboard, timeline, etc.) is open to everyone.
+ *   3. If user is not authenticated for SSH section, redirect to /login.
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -14,13 +14,13 @@ import { SESSION_COOKIE, verifySession } from '@/lib/auth/session'
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // فقط اگر مسیر مربوط به مدیریت SSH بود، احراز هویت را چک کن
+  // Only check auth for SSH management routes
   if (pathname.startsWith('/ssh-servers') || pathname.startsWith('/api/ssh-servers')) {
     const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value)
 
     if (!session) {
       if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: 'ورود لازم است.' }, { status: 401 })
+        return NextResponse.json({ error: 'Login required.' }, { status: 401 })
       }
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('next', pathname)
@@ -28,7 +28,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // بقیه مسیرها آزاد هستند
+  // Other routes are public
   return NextResponse.next()
 }
 

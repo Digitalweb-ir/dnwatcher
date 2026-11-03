@@ -3,15 +3,20 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Plus, Trash2, Server, ShieldCheck, Loader2 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { AppShell } from '@/components/app-shell'
 import { cn } from '@/lib/utils'
 import { toFa } from '@/lib/format'
+import { sshServerSchema, type SSHServerFormData } from '@/lib/forms-schema'
 
 interface SSHServer {
   id: number
@@ -28,7 +33,12 @@ export default function SSHServersPage() {
   const [loading, setLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [newServer, setNewServer] = useState({ name: '', ip: '', user: '', password: '' })
+
+  const form = useForm<SSHServerFormData>({
+    resolver: zodResolver(sshServerSchema),
+    defaultValues: { name: '', ip: '', user: '', password: '' },
+    mode: 'onChange',
+  })
 
   async function fetchServers() {
     try {
@@ -50,22 +60,25 @@ export default function SSHServersPage() {
     fetchServers()
   }, [])
 
-  async function handleAdd() {
+  async function onSubmit(data: SSHServerFormData) {
     setIsSaving(true)
     try {
       const res = await fetch('/api/ssh-servers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newServer),
+        body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('خطا در ذخیره سرور')
+      if (!res.ok) {
+        const result = await res.json()
+        throw new Error(result.error ?? 'خطا در ذخیره سرور')
+      }
 
       toast.success('سرور SSH با موفقیت اضافه شد')
-      setNewServer({ name: '', ip: '', user: '', password: '' })
+      form.reset()
       setIsAdding(false)
       await fetchServers()
     } catch (error) {
-      toast.error('عملیات ناموفق بود')
+      toast.error(error instanceof Error ? error.message : 'عملیات ناموفق بود')
     } finally {
       setIsSaving(false)
     }
@@ -176,50 +189,78 @@ export default function SSHServersPage() {
               <DialogTitle>افزودن سرور SSH</DialogTitle>
               <DialogDescription>اطلاعات دسترسی را برای مدیریت سرور وارد کنید.</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <label className="text-xs font-medium">نام نمایشی</label>
+                <Label htmlFor="ssh-name">نام نمایشی</Label>
                 <Input
+                  id="ssh-name"
                   placeholder="مثلاً: سرور اصلی آلمان"
-                  value={newServer.name}
-                  onChange={e => setNewServer({...newServer, name: e.target.value})}
+                  {...form.register('name')}
+                  aria-invalid={!!form.formState.errors.name}
+                  aria-describedby={form.formState.errors.name ? 'ssh-name-error' : undefined}
                 />
+                {form.formState.errors.name && (
+                  <p id="ssh-name-error" className="text-xs text-destructive" role="alert">
+                    {form.formState.errors.name.message}
+                  </p>
+                )}
               </div>
               <div className="grid gap-2">
-                <label className="text-xs font-medium">آدرس IP</label>
+                <Label htmlFor="ssh-ip">آدرس IP</Label>
                 <Input
+                  id="ssh-ip"
                   placeholder="1.2.3.4"
-                  value={newServer.ip}
-                  onChange={e => setNewServer({...newServer, ip: e.target.value})}
+                  {...form.register('ip')}
+                  aria-invalid={!!form.formState.errors.ip}
+                  aria-describedby={form.formState.errors.ip ? 'ssh-ip-error' : undefined}
                 />
+                {form.formState.errors.ip && (
+                  <p id="ssh-ip-error" className="text-xs text-destructive" role="alert">
+                    {form.formState.errors.ip.message}
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-xs font-medium">کاربر</label>
+                  <Label htmlFor="ssh-user">کاربر</Label>
                   <Input
+                    id="ssh-user"
                     placeholder="root"
-                    value={newServer.user}
-                    onChange={e => setNewServer({...newServer, user: e.target.value})}
+                    {...form.register('user')}
+                    aria-invalid={!!form.formState.errors.user}
+                    aria-describedby={form.formState.errors.user ? 'ssh-user-error' : undefined}
                   />
+                  {form.formState.errors.user && (
+                    <p id="ssh-user-error" className="text-xs text-destructive" role="alert">
+                      {form.formState.errors.user.message}
+                    </p>
+                  )}
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-xs font-medium">رمز عبور</label>
+                  <Label htmlFor="ssh-password">رمز عبور</Label>
                   <Input
+                    id="ssh-password"
                     type="password"
                     placeholder="••••••••"
-                    value={newServer.password}
-                    onChange={e => setNewServer({...newServer, password: e.target.value})}
+                    {...form.register('password')}
+                    aria-invalid={!!form.formState.errors.password}
+                    aria-describedby={form.formState.errors.password ? 'ssh-password-error' : undefined}
                   />
+                  {form.formState.errors.password && (
+                    <p id="ssh-password-error" className="text-xs text-destructive" role="alert">
+                      {form.formState.errors.password.message}
+                    </p>
+                  )}
                 </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAdding(false)}>انصراف</Button>
-              <Button onClick={handleAdd} disabled={isSaving}>
-                {isSaving && <Loader2 className="size-4 animate-spin me-2" />}
-                ذخیره سرور
-              </Button>
-            </DialogFooter>
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => { form.reset(); setIsAdding(false); }}>انصراف</Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="size-4 animate-spin me-2" />}
+                  ذخیره سرور
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

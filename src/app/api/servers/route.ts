@@ -1,10 +1,10 @@
 /**
- * API سرورها — CRUD کامل.
+ * API servers — full CRUD.
  *
- * POST   : ساخت سرور جدید (رمزنگاری لینک ساب + fetch اولیه + reconcile)
- * GET    : لیست سرورها با آمار
- * PUT    : بروزرسانی (name, country, check_interval_sec, enabled)
- * DELETE : حذف
+ * POST   : create new server (subscription link + initial fetch + reconcile)
+ * GET    : list servers with stats
+ * PUT    : update (name, country, check_interval_sec, enabled)
+ * DELETE : remove
  */
 import { NextRequest, NextResponse } from 'next/server'
 
