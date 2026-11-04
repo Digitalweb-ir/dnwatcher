@@ -18,7 +18,6 @@ A round-the-clock monitoring system for Xray servers that fetches subscription l
 ## 🚀 Quick Install (One Line)
 
 ```bash
-# Replace with your domain and Docker Hub image
 sudo bash -c "$(curl -sL https://github.com/Digitalweb-ir/dnwatcher/raw/main/dn-watcher.sh)" @ install
 ```
 
