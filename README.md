@@ -19,9 +19,7 @@ A round-the-clock monitoring system for Xray servers that fetches subscription l
 
 ```bash
 # Replace with your domain and Docker Hub image
-DOMAIN=watcher.example.com \
-DOCKER_IMAGE=yourusername/digitalnetworkwatcher:latest \
-sudo -E bash -c "$(curl -fsSL https://github.com/Digitalweb-ir/dnwatcher/raw/main/dn-watcher.sh)" @ install
+sudo bash -c "$(curl -sL https://github.com/Digitalweb-ir/dnwatcher/raw/main/dn-watcher.sh)" @ install
 ```
 
 The script will:
@@ -131,14 +129,14 @@ src/
 
 ## ⚙️ Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ENCRYPTION_KEY` | — | **Required**. 32-byte hex for AES-256-GCM. |
-| `ADMIN_PASSWORD` | `admin` | Admin password. Hashed on first run. |
-| `SESSION_SECRET` | — | **Required in production**. JWT HS256 signing key (32-byte hex). |
-| `DB_PATH` | `./data/watch.db` | SQLite file path. |
-| `XRAY_BINARY` | auto | Xray binary path (optional). |
-| `NODE_ENV` | `development` | Set to `production` for deployment. |
+| Variable         | Default           | Description                                                      |
+| ---------------- | ----------------- | ---------------------------------------------------------------- |
+| `ENCRYPTION_KEY` | —                 | **Required**. 32-byte hex for AES-256-GCM.                       |
+| `ADMIN_PASSWORD` | `admin`           | Admin password. Hashed on first run.                             |
+| `SESSION_SECRET` | —                 | **Required in production**. JWT HS256 signing key (32-byte hex). |
+| `DB_PATH`        | `./data/watch.db` | SQLite file path.                                                |
+| `XRAY_BINARY`    | auto              | Xray binary path (optional).                                     |
+| `NODE_ENV`       | `development`     | Set to `production` for deployment.                              |
 
 ## 🔐 Security
 
@@ -165,20 +163,20 @@ curl -N http://localhost:3000/api/stream -b "dnw_session=<cookie>"
 
 ## 📊 Main API
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/servers` | List servers with stats |
-| POST | `/api/servers` | Add server (name, country, sub_url, check_interval_sec) |
-| PUT | `/api/servers` | Update server |
-| DELETE | `/api/servers?id=1` | Delete server |
-| POST | `/api/servers/1` | `{action: "check"}` or `{action: "refresh"}` |
-| GET | `/api/timeline?window=24h&serverId=1` | Timeline data |
-| GET | `/api/configs/1` | Config details + stats + timeline |
-| GET | `/api/dashboard` | Dashboard summary |
-| POST | `/api/auth/login` | `{password}` → session cookie |
-| POST | `/api/auth/logout` | Clear cookie |
-| GET | `/api/auth/me` | Auth status |
-| GET | `/api/stream` | SSE (cycle:state, config:check, heartbeat) |
+| Method | Path                                  | Description                                             |
+| ------ | ------------------------------------- | ------------------------------------------------------- |
+| GET    | `/api/servers`                        | List servers with stats                                 |
+| POST   | `/api/servers`                        | Add server (name, country, sub_url, check_interval_sec) |
+| PUT    | `/api/servers`                        | Update server                                           |
+| DELETE | `/api/servers?id=1`                   | Delete server                                           |
+| POST   | `/api/servers/1`                      | `{action: "check"}` or `{action: "refresh"}`            |
+| GET    | `/api/timeline?window=24h&serverId=1` | Timeline data                                           |
+| GET    | `/api/configs/1`                      | Config details + stats + timeline                       |
+| GET    | `/api/dashboard`                      | Dashboard summary                                       |
+| POST   | `/api/auth/login`                     | `{password}` → session cookie                           |
+| POST   | `/api/auth/logout`                    | Clear cookie                                            |
+| GET    | `/api/auth/me`                        | Auth status                                             |
+| GET    | `/api/stream`                         | SSE (cycle:state, config:check, heartbeat)              |
 
 ## 🗃 Database Schema (Summary)
 
