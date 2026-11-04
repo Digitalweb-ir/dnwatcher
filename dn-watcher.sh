@@ -116,7 +116,6 @@ command_exists() {
 install_dependencies() {
     log_step "Checking and installing required dependencies..."
 
-    local packages_needed=()
     local missing_commands=()
 
     # Check for required commands
@@ -133,90 +132,39 @@ install_dependencies() {
 
     log_warning "Missing commands: ${missing_commands[*]}"
 
-    # Detect package manager and install missing packages
-    if command_exists apt-get; then
-        log_info "Detected apt package manager (Debian/Ubuntu)..."
-        apt-get update -qq
-        for cmd in "${missing_commands[@]}"; do
-            case "$cmd" in
-                docker)
-                    packages_needed+=("docker.io" "docker-compose-plugin")
-                    ;;
-                docker-compose)
-                    # Included in docker-compose-plugin
-                    ;;
-                *)
-                    packages_needed+=("$cmd")
-                    ;;
-            esac
-        done
-        if [[ ${#packages_needed[@]} -gt 0 ]]; then
-            log_info "Installing packages: ${packages_needed[*]}"
-            apt-get install -y -qq "${packages_needed[@]}"
+    # Check if Docker/Compose are missing - use official Docker install script
+    local docker_missing=false
+    local compose_missing=false
+    for cmd in "${missing_commands[@]}"; do
+        case "$cmd" in
+            docker) docker_missing=true ;;
+            docker-compose) compose_missing=true ;;
+        esac
+    done
+
+    # Install Docker using official install script if missing
+    if [[ "$docker_missing" == true ]] || [[ "$compose_missing" == true ]]; then
+        log_step "Installing Docker using official install script..."
+        if ! install_docker; then
+            log_error "Failed to install Docker via official script."
+            return 1
         fi
-    elif command_exists dnf; then
-        log_info "Detected dnf package manager (Fedora/RHEL)..."
-        for cmd in "${missing_commands[@]}"; do
-            case "$cmd" in
-                docker)
-                    packages_needed+=("docker" "docker-compose")
-                    ;;
-                *)
-                    packages_needed+=("$cmd")
-                    ;;
-            esac
+        # Re-check after Docker install
+        missing_commands=()
+        for cmd in curl wget jq docker docker-compose; do
+            if ! command_exists "$cmd"; then
+                missing_commands+=("$cmd")
+            fi
         done
-        if [[ ${#packages_needed[@]} -gt 0 ]]; then
-            dnf install -y "${packages_needed[@]}"
+    fi
+
+    # Install remaining dependencies via package manager
+    if [[ ${#missing_commands[@]} -gt 0 ]]; then
+        log_step "Installing remaining dependencies via package manager..."
+        if ! install_via_package_manager "${missing_commands[@]}"; then
+            log_error "Failed to install some dependencies."
+            return 1
         fi
-    elif command_exists yum; then
-        log_info "Detected yum package manager (CentOS/RHEL)..."
-        for cmd in "${missing_commands[@]}"; do
-            case "$cmd" in
-                docker)
-                    packages_needed+=("docker" "docker-compose")
-                    ;;
-                *)
-                    packages_needed+=("$cmd")
-                    ;;
-            esac
-        done
-        if [[ ${#packages_needed[@]} -gt 0 ]]; then
-            yum install -y "${packages_needed[@]}"
-        fi
-    elif command_exists pacman; then
-        log_info "Detected pacman package manager (Arch Linux)..."
-        for cmd in "${missing_commands[@]}"; do
-            case "$cmd" in
-                docker)
-                    packages_needed+=("docker" "docker-compose")
-                    ;;
-                *)
-                    packages_needed+=("$cmd")
-                    ;;
-            esac
-        done
-        if [[ ${#packages_needed[@]} -gt 0 ]]; then
-            pacman -S --noconfirm "${packages_needed[@]}"
-        fi
-    elif command_exists apk; then
-        log_info "Detected apk package manager (Alpine Linux)..."
-        for cmd in "${missing_commands[@]}"; do
-            case "$cmd" in
-                docker)
-                    packages_needed+=("docker" "docker-compose")
-                    ;;
-                *)
-                    packages_needed+=("$cmd")
-                    ;;
-            esac
-        done
-        if [[ ${#packages_needed[@]} -gt 0 ]]; then
-            apk add --no-cache "${packages_needed[@]}"
-        fi
-    else
-        log_error "Unsupported package manager. Please install manually: ${missing_commands[*]}"
-        return 1
     fi
 
     # Start and enable Docker service
@@ -231,6 +179,147 @@ install_dependencies() {
     fi
 
     log_success "Dependencies installed successfully."
+    return 0
+}
+
+# Install Docker using official install script (https://github.com/docker/docker-install)
+install_docker() {
+    log_info "Downloading and running Docker install script..."
+
+    # Use the official Docker install script
+    # This installs Docker Engine, CLI, Compose plugin, and Buildx plugin
+    if ! curl -fsSL https://get.docker.com -o /tmp/docker-install.sh; then
+        log_error "Failed to download Docker install script."
+        return 1
+    fi
+
+    # Run the install script
+    if ! sh /tmp/docker-install.sh; then
+        log_error "Docker install script failed."
+        rm -f /tmp/docker-install.sh
+        return 1
+    fi
+
+    rm -f /tmp/docker-install.sh
+
+    # Verify Docker installation
+    if ! command_exists docker; then
+        log_error "Docker installation verification failed."
+        return 1
+    fi
+
+    # Verify Docker Compose plugin (installed by get.docker.com)
+    if ! docker compose version >/dev/null 2>&1; then
+        log_warning "Docker Compose plugin not available after Docker install."
+        log_info "Attempting to install docker-compose-plugin via package manager..."
+        install_docker_compose_plugin
+    fi
+
+    log_success "Docker installed successfully."
+    return 0
+}
+
+# Install Docker Compose plugin as fallback
+install_docker_compose_plugin() {
+    if command_exists apt-get; then
+        apt-get update -qq && apt-get install -y -qq docker-compose-plugin
+    elif command_exists dnf; then
+        dnf install -y docker-compose-plugin
+    elif command_exists yum; then
+        yum install -y docker-compose-plugin
+    elif command_exists pacman; then
+        pacman -S --noconfirm docker-compose
+    elif command_exists apk; then
+        apk add --no-cache docker-compose
+    else
+        return 1
+    fi
+    return 0
+}
+
+# Install packages via package manager
+install_via_package_manager() {
+    local missing_commands=("$@")
+    local packages_needed=()
+
+    if command_exists apt-get; then
+        log_info "Detected apt package manager (Debian/Ubuntu)..."
+        apt-get update -qq
+        for cmd in "${missing_commands[@]}"; do
+            case "$cmd" in
+                docker|docker-compose)
+                    # Already handled by install_docker
+                    ;;
+                *)
+                    packages_needed+=("$cmd")
+                    ;;
+            esac
+        done
+        if [[ ${#packages_needed[@]} -gt 0 ]]; then
+            log_info "Installing packages: ${packages_needed[*]}"
+            apt-get install -y -qq "${packages_needed[@]}"
+        fi
+    elif command_exists dnf; then
+        log_info "Detected dnf package manager (Fedora/RHEL)..."
+        for cmd in "${missing_commands[@]}"; do
+            case "$cmd" in
+                docker|docker-compose)
+                    ;;
+                *)
+                    packages_needed+=("$cmd")
+                    ;;
+            esac
+        done
+        if [[ ${#packages_needed[@]} -gt 0 ]]; then
+            dnf install -y "${packages_needed[@]}"
+        fi
+    elif command_exists yum; then
+        log_info "Detected yum package manager (CentOS/RHEL)..."
+        for cmd in "${missing_commands[@]}"; do
+            case "$cmd" in
+                docker|docker-compose)
+                    ;;
+                *)
+                    packages_needed+=("$cmd")
+                    ;;
+            esac
+        done
+        if [[ ${#packages_needed[@]} -gt 0 ]]; then
+            yum install -y "${packages_needed[@]}"
+        fi
+    elif command_exists pacman; then
+        log_info "Detected pacman package manager (Arch Linux)..."
+        for cmd in "${missing_commands[@]}"; do
+            case "$cmd" in
+                docker|docker-compose)
+                    ;;
+                *)
+                    packages_needed+=("$cmd")
+                    ;;
+            esac
+        done
+        if [[ ${#packages_needed[@]} -gt 0 ]]; then
+            pacman -S --noconfirm "${packages_needed[@]}"
+        fi
+    elif command_exists apk; then
+        log_info "Detected apk package manager (Alpine Linux)..."
+        for cmd in "${missing_commands[@]}"; do
+            case "$cmd" in
+                docker|docker-compose)
+                    ;;
+                *)
+                    packages_needed+=("$cmd")
+                    ;;
+            esac
+        done
+        if [[ ${#packages_needed[@]} -gt 0 ]]; then
+            apk add --no-cache "${packages_needed[@]}"
+        fi
+    else
+        log_error "Unsupported package manager. Please install manually: ${missing_commands[*]}"
+        return 1
+    fi
+
     return 0
 }
 
