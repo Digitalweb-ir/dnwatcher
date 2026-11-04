@@ -1,0 +1,31 @@
+{$DOMAIN:localhost} {
+	# Security headers
+	header {
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-XSS-Protection "1; mode=block"
+		# HSTS applies only on real HTTPS; harmless on local self-signed
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+	}
+
+	# Reverse proxy to the Next.js standalone server
+	reverse_proxy app:3000 {
+		# Health check so Caddy stops routing while the app is down
+		health_uri /
+		health_interval 30s
+		health_timeout 5s
+
+		# Forward the real client address to the app
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up Host {host}
+	}
+
+	# Access log
+	log {
+		output file /var/lib/dn-watcher/log/caddy/access.log
+		format json
+	}
+}

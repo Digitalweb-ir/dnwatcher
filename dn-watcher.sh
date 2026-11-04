@@ -7,13 +7,13 @@
 # CONFIGURATION CONSTANTS - MODIFY THESE VALUES
 # =============================================================================
 # GitHub repository (format: username/repo-name)
-REPO_NAME="YOUR_USERNAME/digital-network-watcher"
+REPO_NAME="Digitalweb-ir/dnwatcher"
 # GitHub branch to fetch files from
 REPO_BRANCH="main"
 # Docker image name (format: username/imagename or just imagename)
-DOCKER_IMAGE="YOUR_USERNAME/digitalnetworkwatcher"
+DOCKER_IMAGE="erfan1010/dnwatcher"
 # Application installation directory
-APP_DIR="/opt/dn-watcher"
+APP_DIR="/opt/dn-watcher" 
 # Data directory (persistent volumes, database, certificates, etc.)
 DATA_DIR="/var/lib/dn-watcher"
 # Script installation path (for 'install-script' command)
