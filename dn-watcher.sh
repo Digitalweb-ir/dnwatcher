@@ -593,7 +593,7 @@ uninstall_app() {
     log_warning "This will completely remove DigitalNetworkWatcher!"
     log_warning "The following will be deleted:"
     echo "  - Application directory: $APP_DIR"
-    echo "  - Data directory: $DATA_DIR (including database!)"
+    echo "  - Data directory: $DATA_DIR including database!"
     echo "  - Docker containers and images"
     echo "  - Installed CLI script: $SCRIPT_INSTALL_PATH"
     print_separator
