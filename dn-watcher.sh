@@ -13,7 +13,7 @@ REPO_BRANCH="main"
 # Docker image name (format: username/imagename or just imagename)
 DOCKER_IMAGE="erfan1010/dnwatcher"
 # Application installation directory
-APP_DIR="/opt/dn-watcher"
+APP_DIR="/opt/dn-watcher" 
 # Data directory (persistent volumes, database, certificates, etc.)
 DATA_DIR="/var/lib/dn-watcher"
 # Script installation path (for 'install-script' command)
@@ -23,6 +23,7 @@ SCRIPT_INSTALL_PATH="/usr/local/bin/dn-watcher"
 RAW_BASE_URL="https://raw.githubusercontent.com/${REPO_NAME}/${REPO_BRANCH}"
 DOCKER_COMPOSE_URL="${RAW_BASE_URL}/docker-compose.yml"
 ENV_EXAMPLE_URL="${RAW_BASE_URL}/.env.example"
+CADDYFILE_URL="${RAW_BASE_URL}/Caddyfile"
 
 # =============================================================================
 # COLORS & STYLING
@@ -103,6 +104,62 @@ confirm() {
     fi
 
     [[ "$response" == "y" || "$response" == "yes" ]]
+}
+
+# Prompt for admin password with confirmation
+prompt_for_password() {
+    while true; do
+        # Prompt for admin password
+        read -rp "$(echo -e "${YELLOW}Enter admin password for panel login: ${NC}")" admin_pass
+        if [[ -z "$admin_pass" ]]; then
+            log_error "Admin password cannot be empty."
+            continue
+        fi
+
+        # Prompt for password confirmation
+        read -rp "$(echo -e "${YELLOW}Confirm admin password: ${NC}")" admin_pass_confirm
+
+        # Compare passwords
+        if [[ "$admin_pass" == "$admin_pass_confirm" ]]; then
+            # Update ADMIN_PASSWORD in .env
+            sed -i "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=$admin_pass/" "$APP_DIR/.env"
+            log_success "Admin password set successfully."
+            return 0
+        else
+            log_error "Passwords do not match. Please try again."
+            # Continue loop to re-prompt
+        fi
+    done
+}
+
+# Prompt for the domain (or subdomain) that Caddy will serve
+prompt_for_domain() {
+    # Full domain: one or more labels + a TLD of at least 2 letters.
+    # Accepts: digitalnetwork.com, radar.digitalnetwork.com
+    # Rejects: digitalnetwork, .com, radar..com
+    local domain_regex='^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$'
+
+    if [[ ! -f "$APP_DIR/.env" ]]; then
+        log_error "$APP_DIR/.env not found. Cannot set DOMAIN."
+        return 1
+    fi
+
+    while true; do
+        read -rp "$(echo -e "${YELLOW}Enter domain (e.g., radar.digitalnetwork.com): ${NC}")" domain_input
+
+        if [[ "$domain_input" =~ $domain_regex ]]; then
+            if grep -q "^DOMAIN=" "$APP_DIR/.env"; then
+                sed -i "s|^DOMAIN=.*|DOMAIN=$domain_input|" "$APP_DIR/.env"
+            else
+                printf 'DOMAIN=%s\n' "$domain_input" >> "$APP_DIR/.env"
+            fi
+            log_success "Domain set to: $domain_input"
+            return 0
+        fi
+
+        log_error "Invalid domain: '$domain_input'"
+        log_error "Use a full domain name like digitalnetwork.com or radar.digitalnetwork.com"
+    done
 }
 
 # Check if a command exists
@@ -208,8 +265,6 @@ install_docker() {
         return 1
     fi
 
-    configure_arvan_mirror
-
     # Verify Docker Compose plugin (installed by get.docker.com)
     if ! docker compose version >/dev/null 2>&1; then
         log_warning "Docker Compose plugin not available after Docker install."
@@ -218,43 +273,6 @@ install_docker() {
     fi
 
     log_success "Docker installed successfully."
-}
-
-# Configure Docker daemon for Arvan Cloud mirror
-configure_arvan_mirror() {
-    log_step "Configuring Docker daemon for Arvan Cloud mirror..."
-
-    # Check if the mirror is already configured
-    if [[ -f /etc/docker/daemon.json ]]; then
-        if grep -q "docker.arvancloud.ir" /etc/docker/daemon.json; then
-            log_info "Docker daemon already configured with Arvan Cloud mirror."
-            return 0
-        fi
-    fi
-
-    # Create the daemon.json configuration
-    log_info "Setting up Docker daemon configuration..."
-    sudo bash -c 'cat > /etc/docker/daemon.json <<EOF
-{
-  "insecure-registries": ["docker.arvancloud.ir"],
-  "registry-mirrors": ["https://docker.arvancloud.ir"]
-}
-EOF'
-
-    # Reload Docker daemon
-    log_info "Restarting Docker daemon..."
-    sudo systemctl restart docker
-
-    # Verify Docker is running
-    sleep 3
-    if docker info --format '{{.Name}}' >/dev/null 2>&1; then
-        log_success "Docker configured and restarted successfully with Arvan Cloud mirror."
-    else
-        log_error "Failed to restart Docker after configuration."
-        sudo systemctl status docker --no-pager
-        return 1
-    fi
-
     return 0
 }
 
@@ -275,6 +293,8 @@ install_docker_compose_plugin() {
     fi
     return 0
 }
+
+# Install packages via package manager
 install_via_package_manager() {
     local missing_commands=("$@")
     local packages_needed=()
@@ -405,34 +425,24 @@ install_app() {
     fi
     log_success "docker-compose.yml downloaded successfully."
 
-    # Prompt for domain before creating .env (needed for Caddyfile)
-    if [[ -z "$DOMAIN" ]]; then
-        read -rp "$(echo -e "${YELLOW}Enter domain (e.g., watcher.example.com or localhost): ${NC}")" DOMAIN
-        if [[ -z "$DOMAIN" ]]; then
-            log_error "Domain is required for installation."
-            return 1
-        fi
-    fi
 
-    # Download Caddyfile from GitHub
+    # Download Caddyfile
     log_step "Downloading Caddyfile from GitHub..."
-    if ! curl -fsSL "https://raw.githubusercontent.com/Digitalweb-ir/dnwatcher/refs/heads/main/Caddyfile" -o "$APP_DIR/Caddyfile"; then
-        log_error "Failed to download Caddyfile from GitHub."
+    if ! curl -fsSL "$CADDYFILE_URL" -o "$APP_DIR/Caddyfile"; then
+        log_error "Failed to download Caddyfile from $CADDYFILE_URL"
+        log_error "Please check REPO_NAME and REPO_BRANCH constants in the script."
         return 1
     fi
-    log_success "Caddyfile downloaded successfully."
+    log_success "Caddyfile downloaded from GitHub."
 
-    # Generate .env file with the domain
-    log_step "Creating .env file with domain..."
-    sudo bash -c "cat > "$APP_DIR/.env" << EOF
-DOMAIN=$DOMAIN
-DOCKER_IMAGE=$DOCKER_IMAGE
-ENCRYPTION_KEY=$ENCRYPTION_KEY
-ADMIN_PASSWORD=$ADMIN_PASSWORD
-SESSION_SECRET=$SESSION_SECRET
-FORCE_SECURE_COOKIE=true
-EOF
-    log_success ".env file created with domain and configuration values."
+    # Download .env.example and create .env
+    log_step "Downloading .env.example and creating .env..."
+    if ! curl -fsSL "$ENV_EXAMPLE_URL" -o "$APP_DIR/.env"; then
+        log_error "Failed to download .env.example from $ENV_EXAMPLE_URL"
+        log_error "Please check REPO_NAME and REPO_BRANCH constants in the script."
+        return 1
+    fi
+    log_success ".env file created from .env.example."
 
     # Generate secure passwords if .env contains placeholders
     log_step "Generating secure configuration values..."
@@ -450,35 +460,15 @@ EOF
             sed -i "s/^SESSION_SECRET=.*/SESSION_SECRET=$session_secret/" "$APP_DIR/.env"
             log_info "Generated SESSION_SECRET"
         fi
-
-        # Ask the user for the admin password instead of generating one
-        if grep -q "^ADMIN_PASSWORD=$" "$APP_DIR/.env" || grep -q "^ADMIN_PASSWORD=\s*$" "$APP_DIR/.env"; then
-            local admin_pass=""
-            local admin_pass_confirm=""
-            while true; do
-                read -rsp "$(echo -e "${YELLOW}Enter admin password (min 8 characters): ${NC}")" admin_pass
-                echo
-                if [[ ${#admin_pass} -lt 8 ]]; then
-                    log_error "Password must be at least 8 characters."
-                    continue
-                fi
-                read -rsp "$(echo -e "${YELLOW}Confirm admin password: ${NC}")" admin_pass_confirm
-                echo
-                if [[ "$admin_pass" != "$admin_pass_confirm" ]]; then
-                    log_error "Passwords do not match. Please try again."
-                    continue
-                fi
-                break
-            done
-            # Escape sed special characters in the password
-            local admin_pass_escaped
-            admin_pass_escaped=$(printf '%s' "$admin_pass" | sed -e 's/[\/&]/\\&/g')
-            sed -i "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=$admin_pass_escaped/" "$APP_DIR/.env"
-            log_success "Admin password saved to .env"
-        fi
     else
-        log_warning "openssl not found. Please manually edit .env to set ENCRYPTION_KEY, SESSION_SECRET, and ADMIN_PASSWORD"
+        log_warning "openssl not found. Please manually edit .env to set DOMAIN, ENCRYPTION_KEY, SESSION_SECRET, and ADMIN_PASSWORD"
     fi
+
+    # Ask for the domain before the admin password
+    prompt_for_domain
+
+    # Set ADMIN_PASSWORD
+    prompt_for_password
 
     # Update docker-compose.yml with correct paths
     log_step "Updating docker-compose.yml with correct volume paths..."
@@ -505,6 +495,20 @@ EOF
     fi
 
     return 0
+}
+
+# =============================================================================
+# DOCKER COMPOSE OPERATIONS
+# =============================================================================
+compose_cmd() {
+    local cmd="$1"
+    shift
+    if [[ ! -f "$APP_DIR/docker-compose.yml" ]]; then
+        log_error "docker-compose.yml not found at $APP_DIR/docker-compose.yml"
+        log_error "Please run 'install' first."
+        return 1
+    fi
+    cd "$APP_DIR" && docker compose "$cmd" "$@"
 }
 
 start_app() {
@@ -593,7 +597,7 @@ uninstall_app() {
     log_warning "This will completely remove DigitalNetworkWatcher!"
     log_warning "The following will be deleted:"
     echo "  - Application directory: $APP_DIR"
-    echo "  - Data directory: $DATA_DIR including database!"
+    echo "  - Data directory: $DATA_DIR (including database!)"
     echo "  - Docker containers and images"
     echo "  - Installed CLI script: $SCRIPT_INSTALL_PATH"
     print_separator
