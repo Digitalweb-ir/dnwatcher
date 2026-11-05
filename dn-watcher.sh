@@ -13,7 +13,7 @@ REPO_BRANCH="main"
 # Docker image name (format: username/imagename or just imagename)
 DOCKER_IMAGE="erfan1010/dnwatcher"
 # Application installation directory
-APP_DIR="/opt/dn-watcher" 
+APP_DIR="/opt/dn-watcher"
 # Data directory (persistent volumes, database, certificates, etc.)
 DATA_DIR="/var/lib/dn-watcher"
 # Script installation path (for 'install-script' command)
@@ -218,7 +218,6 @@ install_docker() {
     fi
 
     log_success "Docker installed successfully."
-    return 0
 }
 
 # Configure Docker daemon for Arvan Cloud mirror
@@ -406,14 +405,34 @@ install_app() {
     fi
     log_success "docker-compose.yml downloaded successfully."
 
-    # Download .env.example and create .env
-    log_step "Downloading .env.example and creating .env..."
-    if ! curl -fsSL "$ENV_EXAMPLE_URL" -o "$APP_DIR/.env"; then
-        log_error "Failed to download .env.example from $ENV_EXAMPLE_URL"
-        log_error "Please check REPO_NAME and REPO_BRANCH constants in the script."
+    # Prompt for domain before creating .env (needed for Caddyfile)
+    if [[ -z "$DOMAIN" ]]; then
+        read -rp "$(echo -e "${YELLOW}Enter domain (e.g., watcher.example.com or localhost): ${NC}")" DOMAIN
+        if [[ -z "$DOMAIN" ]]; then
+            log_error "Domain is required for installation."
+            return 1
+        fi
+    fi
+
+    # Download Caddyfile from GitHub
+    log_step "Downloading Caddyfile from GitHub..."
+    if ! curl -fsSL "https://raw.githubusercontent.com/Digitalweb-ir/dnwatcher/refs/heads/main/Caddyfile" -o "$APP_DIR/Caddyfile"; then
+        log_error "Failed to download Caddyfile from GitHub."
         return 1
     fi
-    log_success ".env file created from .env.example."
+    log_success "Caddyfile downloaded successfully."
+
+    # Generate .env file with the domain
+    log_step "Creating .env file with domain..."
+    cat > "$APP_DIR/.env" << EOF
+DOMAIN=$DOMAIN
+DOCKER_IMAGE=$DOCKER_IMAGE
+ENCRYPTION_KEY=$ENCRYPTION_KEY
+ADMIN_PASSWORD=$ADMIN_PASSWORD
+SESSION_SECRET=$SESSION_SECRET
+FORCE_SECURE_COOKIE=true
+EOF
+    log_success ".env file created with domain and configuration values.")
 
     # Generate secure passwords if .env contains placeholders
     log_step "Generating secure configuration values..."
@@ -486,20 +505,6 @@ install_app() {
     fi
 
     return 0
-}
-
-# =============================================================================
-# DOCKER COMPOSE OPERATIONS
-# =============================================================================
-compose_cmd() {
-    local cmd="$1"
-    shift
-    if [[ ! -f "$APP_DIR/docker-compose.yml" ]]; then
-        log_error "docker-compose.yml not found at $APP_DIR/docker-compose.yml"
-        log_error "Please run 'install' first."
-        return 1
-    fi
-    cd "$APP_DIR" && docker compose "$cmd" "$@"
 }
 
 start_app() {
