@@ -424,15 +424,15 @@ install_app() {
 
     # Generate .env file with the domain
     log_step "Creating .env file with domain..."
-    sudo bash -c 'cat > "$APP_DIR/.env" << EOF
+    sudo bash -c "cat > "$APP_DIR/.env" << EOF
 DOMAIN=$DOMAIN
 DOCKER_IMAGE=$DOCKER_IMAGE
 ENCRYPTION_KEY=$ENCRYPTION_KEY
 ADMIN_PASSWORD=$ADMIN_PASSWORD
 SESSION_SECRET=$SESSION_SECRET
 FORCE_SECURE_COOKIE=true
-EOF'
-    log_success ".env file created with domain and configuration values.")
+EOF
+    log_success ".env file created with domain and configuration values."
 
     # Generate secure passwords if .env contains placeholders
     log_step "Generating secure configuration values..."
