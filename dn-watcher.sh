@@ -208,6 +208,8 @@ install_docker() {
         return 1
     fi
 
+    configure_arvan_mirror
+
     # Verify Docker Compose plugin (installed by get.docker.com)
     if ! docker compose version >/dev/null 2>&1; then
         log_warning "Docker Compose plugin not available after Docker install."
@@ -216,6 +218,44 @@ install_docker() {
     fi
 
     log_success "Docker installed successfully."
+    return 0
+}
+
+# Configure Docker daemon for Arvan Cloud mirror
+configure_arvan_mirror() {
+    log_step "Configuring Docker daemon for Arvan Cloud mirror..."
+
+    # Check if the mirror is already configured
+    if [[ -f /etc/docker/daemon.json ]]; then
+        if grep -q "docker.arvancloud.ir" /etc/docker/daemon.json; then
+            log_info "Docker daemon already configured with Arvan Cloud mirror."
+            return 0
+        fi
+    fi
+
+    # Create the daemon.json configuration
+    log_info "Setting up Docker daemon configuration..."
+    sudo bash -c 'cat > /etc/docker/daemon.json <<EOF
+{
+  "insecure-registries": ["docker.arvancloud.ir"],
+  "registry-mirrors": ["https://docker.arvancloud.ir"]
+}
+EOF'
+
+    # Reload Docker daemon
+    log_info "Restarting Docker daemon..."
+    sudo systemctl restart docker
+
+    # Verify Docker is running
+    sleep 3
+    if docker info --format '{{.Name}}' >/dev/null 2>&1; then
+        log_success "Docker configured and restarted successfully with Arvan Cloud mirror."
+    else
+        log_error "Failed to restart Docker after configuration."
+        sudo systemctl status docker --no-pager
+        return 1
+    fi
+
     return 0
 }
 
@@ -236,8 +276,6 @@ install_docker_compose_plugin() {
     fi
     return 0
 }
-
-# Install packages via package manager
 install_via_package_manager() {
     local missing_commands=("$@")
     local packages_needed=()

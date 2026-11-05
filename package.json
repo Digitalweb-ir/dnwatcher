@@ -6,7 +6,8 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docker:build": "docker buildx build --platform linux/amd64,linux/arm64 -t erfan1010/dnwatcher:0.0.1 -t erfan1010/dnwatcher:latest --push ."
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.1",
