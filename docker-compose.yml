@@ -1,6 +1,6 @@
 services:
   app:
-    image: ${DOCKER_IMAGE:-digitalnetworkwatcher:latest}
+    image: erfan1010/dnwatcher:latest
     container_name: dnw-app
     restart: unless-stopped
     environment:

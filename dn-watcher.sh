@@ -432,12 +432,30 @@ install_app() {
             log_info "Generated SESSION_SECRET"
         fi
 
-        # Set ADMIN_PASSWORD if not set (default to random)
+        # Ask the user for the admin password instead of generating one
         if grep -q "^ADMIN_PASSWORD=$" "$APP_DIR/.env" || grep -q "^ADMIN_PASSWORD=\s*$" "$APP_DIR/.env"; then
-            local admin_pass=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)
-            sed -i "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=$admin_pass/" "$APP_DIR/.env"
-            log_warning "Generated ADMIN_PASSWORD: $admin_pass"
-            log_warning "Please save this password! You can change it later in .env"
+            local admin_pass=""
+            local admin_pass_confirm=""
+            while true; do
+                read -rsp "$(echo -e "${YELLOW}Enter admin password (min 8 characters): ${NC}")" admin_pass
+                echo
+                if [[ ${#admin_pass} -lt 8 ]]; then
+                    log_error "Password must be at least 8 characters."
+                    continue
+                fi
+                read -rsp "$(echo -e "${YELLOW}Confirm admin password: ${NC}")" admin_pass_confirm
+                echo
+                if [[ "$admin_pass" != "$admin_pass_confirm" ]]; then
+                    log_error "Passwords do not match. Please try again."
+                    continue
+                fi
+                break
+            done
+            # Escape sed special characters in the password
+            local admin_pass_escaped
+            admin_pass_escaped=$(printf '%s' "$admin_pass" | sed -e 's/[\/&]/\\&/g')
+            sed -i "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=$admin_pass_escaped/" "$APP_DIR/.env"
+            log_success "Admin password saved to .env"
         fi
     else
         log_warning "openssl not found. Please manually edit .env to set ENCRYPTION_KEY, SESSION_SECRET, and ADMIN_PASSWORD"
