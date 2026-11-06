@@ -272,8 +272,36 @@ install_docker() {
         install_docker_compose_plugin
     fi
 
+    # Point Docker at the Arvan mirror
+    change_docker_mirror
+
     log_success "Docker installed successfully."
     return 0
+}
+
+# Switch Docker's registry mirror to Arvan Cloud
+change_docker_mirror() {
+    if ! command_exists docker; then
+        log_error "Docker is not installed. Cannot configure the registry mirror."
+        exit 1
+    fi
+
+    log_step "Configuring Docker registry mirror (docker.arvancloud.ir)..."
+
+    mkdir -p /etc/docker
+
+    bash -c 'cat > /etc/docker/daemon.json <<EOF
+{
+  "insecure-registries" : ["https://docker.arvancloud.ir"],
+  "registry-mirrors": ["https://docker.arvancloud.ir"]
+}
+EOF'
+
+    if command_exists systemctl; then
+        systemctl restart docker 2>/dev/null || true
+    fi
+
+    log_success "Docker registry mirror set to docker.arvancloud.ir."
 }
 
 # Install Docker Compose plugin as fallback
