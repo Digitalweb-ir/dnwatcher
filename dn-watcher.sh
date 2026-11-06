@@ -503,9 +503,13 @@ install_app() {
     # sed -i "s|./data:/data|$DATA_DIR:/data|g" "$APP_DIR/docker-compose.yml"
     # sed -i "s|/data/watch.db|$DATA_DIR/watch.db|g" "$APP_DIR/docker-compose.yml"
 
-    # Set proper permissions
+    # Set proper permissions.
+    # The app container runs as the "node" user (uid 1000 in the node:alpine
+    # image), so the data directory must be writable by that uid. The host
+    # mount hides the ownership set inside the Dockerfile.
     chown -R "$(id -u):$(id -g)" "$APP_DIR" 2>/dev/null || true
-    chown -R "$(id -u):$(id -g)" "$DATA_DIR" 2>/dev/null || true
+    chown -R 1000:1000 "$DATA_DIR" 2>/dev/null || true
+    chmod 755 "$DATA_DIR" 2>/dev/null || true
 
     log_success "Installation completed successfully!"
     print_separator

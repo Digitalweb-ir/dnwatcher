@@ -39,15 +39,18 @@ RUN apk add --no-cache \
     curl \
     bash \
     wget \
-    unzip
+    unzip \
+    util-linux
 
 # Copy the standalone output from the builder stage
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Database directory (volume mount point)
-RUN mkdir -p /var/lib/dn-watcher && chown -R root:root /var/lib/dn-watcher && chmod -R 755 /var/lib/dn-watcher
+# Database directory (volume mount point) - ensure node user can write
+RUN mkdir -p /var/lib/dn-watcher && \
+    chown -R node:node /var/lib/dn-watcher && \
+    chmod -R 755 /var/lib/dn-watcher
 
 # Install xray-core (binary fetched from GitHub Releases)
 ARG XRAY_VERSION=v26.3.27
@@ -59,10 +62,11 @@ RUN set -eux; \
     aarch64) XRAY_ARCH="arm64-v8a" ;; \
     *) echo "Unsupported arch: $arch" && exit 1 ;; \
     esac; \
-    curl -L -o /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip"; \
-    unzip -q /tmp/xray.zip -d /tmp/xray; \
-    install -m 755 /tmp/xray/xray "${XRAY_BINARY}"; \
-    rm -rf /tmp/xray /tmp/xray.zip; \
+    mkdir -p /tmp/xray && \
+    curl -L -o /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip" && \
+    unzip -q /tmp/xray.zip -d /tmp/xray && \
+    install -m 755 /tmp/xray/xray "${XRAY_BINARY}" && \
+    rm -rf /tmp/xray /tmp/xray.zip && \
     "${XRAY_BINARY}" version
 
 # Default environment variables
@@ -78,6 +82,9 @@ EXPOSE 3000
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -fsS "http://localhost:3000/" || exit 1
+
+# Run as non-root user
+USER node
 
 # Use tini for signal handling
 ENTRYPOINT ["/sbin/tini", "--"]
