@@ -47,7 +47,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 # Database directory (volume mount point)
-RUN mkdir -p //var/lib/dn-watcher && chown root:root /var/lib/dn-watcher
+RUN mkdir -p /var/lib/dn-watcher && chown -R root:root /var/lib/dn-watcher && chmod -R 755 /var/lib/dn-watcher
 
 # Install xray-core (binary fetched from GitHub Releases)
 ARG XRAY_VERSION=v26.3.27
