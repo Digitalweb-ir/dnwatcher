@@ -1,5 +1,5 @@
-# Dockerfile برای DigitalNetworkWatcher
-# تصویری سبک (standalone) که Next.js + node:sqlite + xray را در خود دارد
+# Dockerfile for DigitalNetworkWatcher
+# Lightweight standalone image bundling Next.js, node:sqlite, and xray
 
 # ------------------------------------------------------------
 # Build stage
@@ -8,19 +8,19 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# وابستگی‌های سیستمی برای نصب
+# System dependencies needed to build
 RUN apk add --no-cache python3 make g++ sqlite-dev
 
-# کپی package.json و lockfile
+# Copy package.json and lockfile
 COPY package*.json ./
 
-# نصب وابستگی‌ها (شامل devDependencies برای build)
+# Install dependencies (including devDependencies for the build)
 RUN npm ci
 
-# کپی کد منبع
+# Copy the source code
 COPY . .
 
-# تولید باینری standalone
+# Produce the standalone build
 RUN npm run build
 
 # ------------------------------------------------------------
@@ -30,7 +30,8 @@ FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-# پکیج‌های زمان اجرا: tini برای مدیریت سیگنال، sqlite-libs، ca-certificates، curl برای healthcheck، wget و unzip برای نصب xray
+# Runtime packages: tini for signal handling, sqlite-libs, ca-certificates,
+# curl for the healthcheck, and wget and unzip for installing xray
 RUN apk add --no-cache \
     tini \
     sqlite-libs \
@@ -40,23 +41,23 @@ RUN apk add --no-cache \
     wget \
     unzip
 
-# کپی خروجی standalone از builder
+# Copy the standalone output from the builder stage
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# دایرکتوری دیتابیس (volume mount point)
-RUN mkdir -p /data && chown node:node /data
+# Database directory (volume mount point)
+RUN mkdir -p //var/lib/dn-watcher && chown root:root /var/lib/dn-watcher
 
-# نصب xray-core (بازیابی باینری از GitHub Releases)
+# Install xray-core (binary fetched from GitHub Releases)
 ARG XRAY_VERSION=v26.3.27
 ENV XRAY_BINARY=/usr/local/bin/xray
 RUN set -eux; \
     arch="$(uname -m)"; \
     case "$arch" in \
-      x86_64) XRAY_ARCH="64" ;; \
-      aarch64) XRAY_ARCH="arm64-v8a" ;; \
-      *) echo "Unsupported arch: $arch" && exit 1 ;; \
+    x86_64) XRAY_ARCH="64" ;; \
+    aarch64) XRAY_ARCH="arm64-v8a" ;; \
+    *) echo "Unsupported arch: $arch" && exit 1 ;; \
     esac; \
     curl -L -o /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${XRAY_ARCH}.zip"; \
     unzip -q /tmp/xray.zip -d /tmp/xray; \
@@ -64,25 +65,22 @@ RUN set -eux; \
     rm -rf /tmp/xray /tmp/xray.zip; \
     "${XRAY_BINARY}" version
 
-# کاربر غیر روت
-USER node
-
-# متغیرهای پیش‌فرض
+# Default environment variables
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
-    DB_PATH=/data/watch.db \
+    DB_PATH=/var/lib/dn-watcher/sqldb.db \
     PORT=3000 \
     HOSTNAME=0.0.0.0
 
-# پورت پیش‌فرض
+# Default port
 EXPOSE 3000
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -fsS "http://localhost:3000/" || exit 1
 
-# استفاده از tini برای مدیریت سیگنال‌ها
+# Use tini for signal handling
 ENTRYPOINT ["/sbin/tini", "--"]
 
-# اجرای سرور Next.js standalone
+# Start the Next.js standalone server
 CMD ["node", "server.js"]

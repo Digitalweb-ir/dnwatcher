@@ -4,9 +4,9 @@ services:
     container_name: dnw-app
     restart: unless-stopped
     environment:
-      - NODE_ENV=production
-      - NEXT_TELEMETRY_DISABLED=1
-      - DB_PATH=/data/watch.db
+      - NODE_ENV=${NODE_ENV:-production}
+      - NEXT_TELEMETRY_DISABLED=${NEXT_TELEMETRY_DISABLED:-1}
+      - DB_PATH=${DB_PATH:-/var/lib/dn-watcher/sqldb.db}
       - DEBUG=${DEBUG:-false}
       # Set to false for HTTP-only environments (e.g. local Docker development)
       - FORCE_SECURE_COOKIE=${FORCE_SECURE_COOKIE:-false}
@@ -15,9 +15,9 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - SESSION_SECRET=${SESSION_SECRET}
       # Xray binary path inside the container
-      - XRAY_BINARY=/usr/local/bin/xray
+      - XRAY_BINARY=${XRAY_BINARY:-/usr/local/bin/xray}
     volumes:
-      - ./data:/data
+      - /var/lib/dn-watcher:/var/lib/dn-watcher
     networks:
       - internal
     healthcheck:
@@ -39,9 +39,9 @@ services:
       - DOMAIN=${DOMAIN:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./caddy-data:/data
       - ./caddy-config:/config
-      - ./caddy-logs:/var/log/caddy
+      - /var/lib/dn-watcher/caddy-data:/data
+      - /var/lib/dn-watcher/logs/caddy:/var/log/caddy
     depends_on:
       app:
         condition: service_healthy

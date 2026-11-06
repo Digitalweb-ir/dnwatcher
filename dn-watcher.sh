@@ -498,10 +498,10 @@ install_app() {
     # Set ADMIN_PASSWORD
     prompt_for_password
 
-    # Update docker-compose.yml with correct paths
-    log_step "Updating docker-compose.yml with correct volume paths..."
-    sed -i "s|./data:/data|$DATA_DIR:/data|g" "$APP_DIR/docker-compose.yml"
-    sed -i "s|/data/watch.db|$DATA_DIR/watch.db|g" "$APP_DIR/docker-compose.yml"
+    # # Update docker-compose.yml with correct paths
+    # log_step "Updating docker-compose.yml with correct volume paths..."
+    # sed -i "s|./data:/data|$DATA_DIR:/data|g" "$APP_DIR/docker-compose.yml"
+    # sed -i "s|/data/watch.db|$DATA_DIR/watch.db|g" "$APP_DIR/docker-compose.yml"
 
     # Set proper permissions
     chown -R "$(id -u):$(id -g)" "$APP_DIR" 2>/dev/null || true
