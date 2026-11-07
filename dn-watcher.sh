@@ -426,6 +426,15 @@ install_app() {
         return 1
     fi
 
+    # Check if CLI script is installed; if not, install it
+    if [[ ! -x "$SCRIPT_INSTALL_PATH" ]]; then
+        log_step "CLI script not found at $SCRIPT_INSTALL_PATH, installing..."
+        if ! install_script; then
+            log_error "Failed to install CLI script."
+            return 1
+        fi
+    fi
+
     # Check if app directory already exists
     if [[ -d "$APP_DIR" ]]; then
         log_warning "Application directory already exists: $APP_DIR"
