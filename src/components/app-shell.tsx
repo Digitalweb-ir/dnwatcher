@@ -18,7 +18,7 @@ const NAV = [
   { href: '/timeline', label: 'تایم‌لاین', icon: Activity, auth: false },
   { href: '/servers', label: 'سرورها', icon: Server, auth: false },
   { href: '/ssh-servers', label: 'دسترسی SSH', icon: ShieldCheck, auth: true },
-  { href: '/settings', label: 'تنظیمات', icon: Settings, auth: false },
+  { href: '/settings', label: 'تنظیمات', icon: Settings, auth: true },
 ] as const
 
 function isActive(pathname: string, href: string) {

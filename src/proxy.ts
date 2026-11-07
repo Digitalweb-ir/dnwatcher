@@ -14,8 +14,13 @@ import { SESSION_COOKIE, verifySession } from '@/lib/auth/session'
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Only check auth for SSH management routes
-  if (pathname.startsWith('/ssh-servers') || pathname.startsWith('/api/ssh-servers')) {
+  // Only check auth for the SSH management and settings routes
+  if (
+    pathname.startsWith('/ssh-servers') ||
+    pathname.startsWith('/api/ssh-servers') ||
+    pathname.startsWith('/settings') ||
+    pathname.startsWith('/api/settings')
+  ) {
     const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value)
 
     if (!session) {
@@ -33,5 +38,10 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/ssh-servers/:path*', '/api/ssh-servers/:path*'],
+  matcher: [
+    '/ssh-servers/:path*',
+    '/api/ssh-servers/:path*',
+    '/settings/:path*',
+    '/api/settings/:path*',
+  ],
 }

@@ -7,8 +7,12 @@ import { verifyPasswordSync } from '@/lib/auth/password'
 import { getAdminHash } from '@/lib/auth/store'
 import { revalidatePath } from 'next/cache'
 import { settingsSchema, formDataToPatch, SettingsFormData } from '@/lib/settings-schema'
+import { isAuthed } from '@/lib/auth/guard'
+
+const UNAUTHED = { success: false, message: 'برای این کار باید وارد شوید.' }
 
 export async function saveSettingsAction(formData: FormData) {
+  if (!(await isAuthed())) return UNAUTHED
   // Convert FormData to plain object
   const rawData: Record<string, unknown> = {}
   for (const [key, value] of formData.entries()) {
@@ -34,6 +38,8 @@ export async function saveSettingsAction(formData: FormData) {
 }
 
 export async function changePasswordAction(formData: FormData) {
+  if (!(await isAuthed())) return UNAUTHED
+
   const db = getDb()
   const current = formData.get('current_password') as string
   const next = formData.get('new_password') as string
