@@ -589,6 +589,13 @@ update_app() {
         return 1
     fi
 
+    # Check if docker-compose.yml exists
+    if [[ ! -f "$APP_DIR/docker-compose.yml" ]]; then
+        log_error "docker-compose.yml not found at $APP_DIR/docker-compose.yml"
+        log_error "Please run 'install' first."
+        return 1
+    fi
+
     # Pull latest image
     log_step "Pulling latest Docker image: $DOCKER_IMAGE"
     docker pull "$DOCKER_IMAGE:latest"
