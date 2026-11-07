@@ -21,7 +21,8 @@ const NAV = [
   { href: '/settings', label: 'تنظیمات', icon: Settings, auth: true },
 ] as const
 
-function isActive(pathname: string, href: string) {
+function isActive(pathname: string, href: string, isAuthenticated: boolean) {
+  if (!isAuthenticated && href === '/settings') return false
   return href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`)
 }
 
@@ -48,7 +49,7 @@ function NavLinks({ className, isAuthenticated }: { className?: string; isAuthen
     <nav className={cn('flex flex-col gap-1', className)}>
       {NAV.map(({ href, label, icon: Icon, auth }) => {
         if (auth && !isAuthenticated) return null
-        const active = isActive(pathname, href)
+        const active = isActive(pathname, href, isAuthenticated)
         return (
           <Link
             key={href}
@@ -81,7 +82,7 @@ function MobileNav({ isAuthenticated }: { isAuthenticated: boolean }) {
       <ul className="grid grid-cols-4">
         {NAV.map(({ href, label, icon: Icon, auth }) => {
           if (auth && !isAuthenticated) return null
-          const active = isActive(pathname, href)
+          const active = isActive(pathname, href, isAuthenticated)
           return (
             <li key={href}>
               <Link
