@@ -130,7 +130,15 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
               <RHFField rhfForm={form} name="scheduler_tick_sec" label="فاصله حلقه زمان‌بند (ثانیه)" type="number" min={5} max={300} />
               <RHFField rhfForm={form} name="test_url" label="آدرس تست سلامت" type="url" />
               <RHFField rhfForm={form} name="outage_webhook_url" label="آدرس وب‌هوک قطعی" type="url" placeholder="http://localhost:3000/api/webhooks/outage" />
-              <RHFField rhfForm={form} name="ssh_recovery_command" label="دستور ریکاوری SSH" placeholder="backpack -restart-all" />
+              <RHFField
+                rhfForm={form}
+                name="ssh_recovery_command"
+                label="دستور ریکاوری SSH (سراسری - پیش‌فرض)"
+                placeholder="backpack -restart-all"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                این دستور به عنوان پیش‌فرض برای سرورهایی استفاده می‌شود که در بخش «مدیریت سرورهای SSH» دستور مخصوص خود را ندارند.
+              </p>
               <Button type="submit" className="mt-2 w-full"><Save className="me-2 size-4" />ذخیره تنظیمات</Button>
             </form>
           </CardContent>

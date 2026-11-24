@@ -24,6 +24,7 @@ interface SSHServer {
   ip: string
   user: string
   password: string
+  recovery_command: string | null
   created_at: number
 }
 
@@ -173,6 +174,13 @@ export default function SSHServersPage() {
                     </div>
                   </div>
 
+                  {s.recovery_command && (
+                    <div className="mt-2 p-2 rounded-lg bg-muted/30 text-xs">
+                      <span className="text-muted-foreground">دستور ریکاوری:</span>
+                      <span className="font-mono font-medium ml-2">{s.recovery_command}</span>
+                    </div>
+                  )}
+
                   <div className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground">
                     <ShieldCheck className="size-3 text-up" />
                       اتصال رمزنگاری شده (SSH)
@@ -252,6 +260,25 @@ export default function SSHServersPage() {
                     </p>
                   )}
                 </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="ssh-recovery">دستور ریکاوری (اختیاری)</Label>
+                <Input
+                  id="ssh-recovery"
+                  placeholder="مثال: systemctl restart xray"
+                  {...form.register('recovery_command')}
+                  aria-invalid={!!form.formState.errors.recovery_command}
+                  aria-describedby={form.formState.errors.recovery_command ? 'ssh-recovery-error' : undefined}
+                />
+                {form.formState.errors.recovery_command && (
+                  <p id="ssh-recovery-error" className="text-xs text-destructive" role="alert">
+                    {form.formState.errors.recovery_command.message}
+                  </p>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  این دستور در هنگام قطعی کانفیگ روی این سرور SSH اجرا می‌شود. اگر خالی بماند، از تنظیمات کلی استفاده می‌شود.
+                </p>
               </div>
               <DialogFooter>
                 <Button variant="outline" type="button" onClick={() => { form.reset(); setIsAdding(false); }}>انصراف</Button>

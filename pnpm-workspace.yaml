@@ -1,2 +1,5 @@
+allowBuilds:
+  cpu-features: true
+  ssh2: true
 minimumReleaseAgeExclude:
   - lucide-react@1.50.0

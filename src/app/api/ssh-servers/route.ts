@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { name, ip, user, password } = body
+    const { name, ip, user, password, recovery_command } = body
 
     if (!name || !ip || !user || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -42,8 +42,8 @@ export async function POST(req: Request) {
 
     const db = getDb()
     const result = db.prepare(
-      'INSERT INTO ssh_servers (name, ip, user, password, created_at) VALUES (?, ?, ?, ?, ?)'
-    ).run(name, ip, user, password, Date.now())
+      'INSERT INTO ssh_servers (name, ip, user, password, recovery_command, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(name, ip, user, password, recovery_command ?? null, Date.now())
 
     return NextResponse.json({
       success: true,

@@ -24,6 +24,7 @@ export const sshServerSchema = z.object({
   ip: z.string().min(1, 'آدرس IP را وارد کنید.').regex(/^(?:\d{1,3}\.){3}\d{1,3}$/, 'آدرس IP معتبر نیست.'),
   user: z.string().min(1, 'نام کاربری را وارد کنید.').max(50, 'نام کاربری بیش از حد طولانی است.'),
   password: z.string().min(1, 'رمز عبور را وارد کنید.').max(200, 'رمز عبور بیش از حد طولانی است.'),
+  recovery_command: z.string().max(500, 'دستور ریکاوری بیش از حد طولانی است.').optional().or(z.literal('')),
 })
 
 export type SSHServerFormData = z.infer<typeof sshServerSchema>

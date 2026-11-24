@@ -187,8 +187,15 @@ const MIGRATIONS: string[] = [
     ip       TEXT    NOT NULL,
     user     TEXT    NOT NULL,
     password TEXT    NOT NULL,
+    recovery_command TEXT,
     created_at INTEGER NOT NULL
   );
+  `,
+
+  /* 6 — Add recovery_command to ssh_servers with default 'reboot' for existing rows */
+  `
+  ALTER TABLE ssh_servers ADD COLUMN recovery_command TEXT;
+  UPDATE ssh_servers SET recovery_command = 'reboot' WHERE recovery_command IS NULL;
   `,
 ]
 
